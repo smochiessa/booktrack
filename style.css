@@ -1,0 +1,207 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f6f1e8;
+    color: #332b25;
+}
+
+/* HEADER */
+
+header {
+    background: #332b25;
+    color: white;
+    padding: 20px 60px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.header-text {
+    font-size: 15px;
+}
+
+
+/* MAIN */
+
+main {
+    min-height: 80vh;
+}
+
+
+/* WELCOME SECTION */
+
+.welcome {
+    text-align: center;
+    padding: 90px 20px 60px;
+}
+
+.welcome h1 {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.welcome p {
+    font-size: 18px;
+    color: #6b625b;
+    max-width: 600px;
+    margin: auto;
+}
+
+
+/* BUTTONS */
+
+.buttons {
+    margin-top: 35px;
+
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.button {
+    text-decoration: none;
+    background: #7b4f35;
+    color: white;
+
+    padding: 15px 25px;
+
+    border-radius: 8px;
+
+    font-weight: bold;
+}
+
+.button:hover {
+    background: #5f3b27;
+}
+
+
+/* INFORMATION CARDS */
+
+.info {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    padding: 20px;
+}
+
+.info-card {
+    background: white;
+
+    width: 280px;
+
+    padding: 25px;
+
+    border-radius: 12px;
+
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+
+    text-align: center;
+}
+
+.info-card h3 {
+    margin-bottom: 10px;
+}
+
+.info-card p {
+    color: #6b625b;
+    line-height: 1.5;
+}
+
+
+/* FOOTER */
+
+footer {
+    background: #332b25;
+    color: white;
+
+    padding: 20px 60px;
+
+    display: flex;
+    justify-content: space-between;
+}
+
+footer a {
+    color: white;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+.admin-nav {
+    display: flex;
+    gap: 20px;
+    padding: 15px 30px;
+    background: #3e2723;
+    align-items: center;
+}
+
+.admin-nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.admin-nav a:hover {
+    text-decoration: underline;
+}
+/* BORROWING HISTORY */
+
+.history-container {
+    width: 95%;
+    margin: 30px auto;
+    background: #fffaf3;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.history-container h1 {
+    color: #4e342e;
+    margin-bottom: 10px;
+}
+
+.history-container p {
+    color: #795548;
+    margin-bottom: 25px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.history-table th {
+    background: #6d4c41;
+    color: white;
+    padding: 14px;
+    text-align: left;
+}
+
+.history-table td {
+    padding: 13px;
+    border-bottom: 1px solid #eadfd5;
+}
+
+.history-table tr:hover {
+    background: #fff3e0;
+}
+
+.history-table td:last-child {
+    font-weight: bold;
+}
