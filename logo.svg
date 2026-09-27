@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%" aria-label="Page Lounge Book Café Logo">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&amp;family=Playfair+Display:ital,wght@0,700;1,400&amp;display=swap');
+      .cls-circle { fill: none; stroke: #362115; stroke-width: 4; stroke-linecap: round; }
+      .cls-page { font-family: 'Playfair Display', Georgia, serif; font-size: 78px; font-weight: 700; fill: #362115; }
+      .cls-lounge { font-family: 'Alex Brush', 'Dancing Script', cursive; font-size: 82px; fill: #444b3c; }
+      .cls-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 5px; fill: #362115; }
+      .cls-tagline { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 3.5px; fill: #362115; }
+    </style>
+    <path id="tagline-path" d="M 125,370 A 185,185 0 0,0 375,370" fill="none" />
+  </defs>
+
+  <!-- Background circle fill -->
+  <circle cx="250" cy="250" r="236" fill="#fbf8f2" />
+
+  <!-- Outer circular frame arcs -->
+  <path d="M 100,165 A 190,190 0 0,1 360,95" class="cls-circle" />
+  <path d="M 395,120 A 190,190 0 0,1 425,260" class="cls-circle" />
+  <path d="M 105,355 A 190,190 0 0,0 410,330" class="cls-circle" />
+  <path d="M 75,230 A 190,190 0 0,1 92,180" class="cls-circle" />
+
+  <!-- Open Book Artwork -->
+  <g id="book" transform="translate(155, 115)">
+    <!-- Book spine / pages outline -->
+    <path d="M 90,75 C 60,65 25,68 8,76 L 24,19 C 45,15 72,18 90,32 C 108,18 135,15 156,19 L 172,76 C 155,68 120,65 90,75 Z" fill="#ffffff" stroke="#362115" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M 90,32 L 90,75" stroke="#362115" stroke-width="3" stroke-linecap="round"/>
+    <!-- Page lines left -->
+    <path d="M 28,34 C 48,30 70,32 84,42" fill="none" stroke="#362115" stroke-width="2"/>
+    <path d="M 25,48 C 45,44 68,46 84,56" fill="none" stroke="#362115" stroke-width="2"/>
+    <path d="M 22,62 C 42,58 65,60 84,70" fill="none" stroke="#362115" stroke-width="2"/>
+    <!-- Page lines right -->
+    <path d="M 152,34 C 132,30 110,32 96,42" fill="none" stroke="#362115" stroke-width="2"/>
+    <path d="M 155,48 C 135,44 112,46 96,56" fill="none" stroke="#362115" stroke-width="2"/>
+    <path d="M 158,62 C 138,58 115,60 96,70" fill="none" stroke="#362115" stroke-width="2"/>
+    <!-- Central leaf sprout -->
+    <path d="M 90,32 C 90,18 92,2 96,-18" fill="none" stroke="#362115" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Top leaf -->
+    <path d="M 96,-18 C 93,-30 96,-40 98,-44 C 103,-38 106,-26 96,-18 Z" fill="#4d5f44" stroke="#362115" stroke-width="2"/>
+    <!-- Left leaf -->
+    <path d="M 92,-4 C 80,-8 70,-15 68,-22 C 77,-24 88,-16 93,-8 Z" fill="#4d5f44" stroke="#362115" stroke-width="2"/>
+    <!-- Right leaf -->
+    <path d="M 95,-7 C 108,-11 118,-18 120,-25 C 111,-27 100,-19 95,-11 Z" fill="#4d5f44" stroke="#362115" stroke-width="2"/>
+  </g>
+
+  <!-- Sparkles -->
+  <g fill="#c4955b">
+    <!-- Left sparkle -->
+    <path d="M 205,108 Q 209,108 209,103 Q 209,108 214,108 Q 209,108 209,113 Q 209,108 205,108 Z"/>
+    <!-- Right sparkle -->
+    <path d="M 315,106 Q 320,106 320,100 Q 320,106 326,106 Q 320,106 320,112 Q 320,106 315,106 Z"/>
+  </g>
+
+  <!-- Iced Coffee Cup Artwork -->
+  <g id="iced-coffee" transform="translate(340, 90)">
+    <!-- Straw -->
+    <path d="M 46,-12 L 34,48" stroke="#362115" stroke-width="5" stroke-linecap="round"/>
+    <!-- Dome Lid -->
+    <path d="M 5,48 C 5,16 65,16 65,48 Z" fill="#ffffff" fill-opacity="0.6" stroke="#362115" stroke-width="3"/>
+    <rect x="2" y="47" width="66" height="7" rx="3" fill="#ffffff" stroke="#362115" stroke-width="3"/>
+    <!-- Cup body -->
+    <path d="M 7,54 L 18,150 C 19,158 51,158 52,150 L 63,54 Z" fill="#d8ad7a" stroke="#362115" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Liquid / Ice cubes details -->
+    <path d="M 12,65 Q 35,70 58,65 L 52,148 C 48,155 22,155 18,148 Z" fill="#c4935b" />
+    <!-- Ice cubes -->
+    <rect x="18" y="74" width="16" height="15" rx="3" fill="#ffffff" fill-opacity="0.5" stroke="#362115" stroke-width="1.8" transform="rotate(-12 26 81)"/>
+    <rect x="36" y="86" width="17" height="15" rx="3" fill="#ffffff" fill-opacity="0.5" stroke="#362115" stroke-width="1.8" transform="rotate(18 44 93)"/>
+    <rect x="20" y="110" width="15" height="15" rx="3" fill="#ffffff" fill-opacity="0.5" stroke="#362115" stroke-width="1.8" transform="rotate(8 27 117)"/>
+    <!-- Round Cup Badge -->
+    <circle cx="35" cy="112" r="16" fill="#3c4c36" stroke="#362115" stroke-width="2"/>
+    <!-- Mini book in badge -->
+    <path d="M 28,114 C 31,112 34,113 35,115 C 36,113 39,112 42,114 L 40,118 C 38,117 36,117 35,118 C 34,117 32,117 30,118 Z" fill="#ffffff"/>
+    <path d="M 35,115 L 35,108 C 35,106 37,105 39,105 C 37,107 35,108 35,108" fill="#ffffff"/>
+  </g>
+
+  <!-- Typography: "Page" -->
+  <text x="65" y="255" class="cls-page">Page</text>
+
+  <!-- Script: "Lounge" with small heart -->
+  <g transform="translate(50, 275)">
+    <!-- Small heart icon -->
+    <path d="M 15,22 C 10,14 2,18 2,26 C 2,34 15,44 15,44 C 15,44 28,34 28,26 C 28,18 20,14 15,22 Z" fill="none" stroke="#444b3c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="32" y="65" class="cls-lounge">Lounge</text>
+  </g>
+
+  <!-- Subtitle: "- BOOK CAFÉ -" -->
+  <g transform="translate(250, 360)">
+    <line x1="-115" y1="-4" x2="-80" y2="-4" stroke="#362115" stroke-width="2" stroke-linecap="round"/>
+    <text x="0" y="0" text-anchor="middle" class="cls-sub">BOOK CAFÉ</text>
+    <line x1="80" y1="-4" x2="115" y2="-4" stroke="#362115" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Bottom Tagline on arc: "WHERE BOOKS MEET COMFORT" with heart -->
+  <text class="cls-tagline">
+    <textPath href="#tagline-path" startOffset="50%" text-anchor="middle">
+      WHERE BOOKS MEET COMFORT
+    </textPath>
+  </text>
+  <!-- Tiny center heart at bottom -->
+  <path d="M 250,392 C 248,388 244,389 244,392 C 244,395 250,399 250,399 C 250,399 256,395 256,392 C 256,389 252,388 250,392 Z" fill="#362115" />
+</svg>

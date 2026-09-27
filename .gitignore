@@ -1,0 +1,16 @@
+# Dependencies
+/vendor/
+
+# AI skills and configuration
+/skills/
+/.claude/
+/anti-slop/
+
+# Markdown documents
+*.md
+**/*.md
+
+# Environment & OS files
+.env
+.DS_Store
+Thumbs.db
