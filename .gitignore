@@ -1,6 +1,3 @@
-# Dependencies
-/vendor/
-
 # AI skills and configuration
 /skills/
 /.claude/
