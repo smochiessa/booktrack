@@ -1383,6 +1383,9 @@ if (!empty($params)) {
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
                     </a>
+                    <a href="reports.php">
+                        <i data-heroicon="chart-bar"></i> Reports
+                    </a>
                     <a href="settings.php">
                         <i data-heroicon="cog-6-tooth"></i> Account Settings
                     </a>
