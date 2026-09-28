@@ -30,10 +30,9 @@ if (!$book_id) {
 }
 
 if (!$init_error && $_SERVER["REQUEST_METHOD"] === "POST") {
-    $name = trim($_POST['name'] ?? '');
+    $name = trim(preg_replace('/\s+/', ' ', $_POST['name'] ?? ''));
     $rawContact = trim($_POST['contact'] ?? '');
-    $digits = preg_replace('/[^0-9]/', '', $rawContact);
-    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
+    $contact = pagelounge_normalize_contact($rawContact);
 
     if ($name === "") {
         $message = "Please enter your name.";

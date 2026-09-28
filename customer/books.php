@@ -108,10 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
                || (isset($_POST['is_ajax']) && $_POST['is_ajax'] === '1');
     $book_id = filter_var($_POST['book_id'] ?? null, FILTER_VALIDATE_INT);
-    $name = trim($_POST['name'] ?? '');
+    $name = trim(preg_replace('/\s+/', ' ', $_POST['name'] ?? ''));
     $rawContact = trim($_POST['contact'] ?? '');
-    $digits = preg_replace('/[^0-9]/', '', $rawContact);
-    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
+    $contact = pagelounge_normalize_contact($rawContact);
 
     if (!$book_id) {
         $borrow_flash_msg = "Please select a valid book to borrow.";

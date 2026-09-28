@@ -11,50 +11,61 @@ $customer_name_input = "";
 $customer_contact_input = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $name = trim($_POST['name'] ?? '');
+    $name = trim(preg_replace('/\s+/', ' ', $_POST['name'] ?? ''));
     $rawContact = trim($_POST['contact'] ?? '');
+    $contact = pagelounge_normalize_contact($rawContact);
     $digits = preg_replace('/[^0-9]/', '', $rawContact);
-    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
     $customer_name_input = $name;
-    $customer_contact_input = $contact;
+    $customer_contact_input = $rawContact;
     $selected_borrowing_id = filter_var($_POST['borrowing_id'] ?? null, FILTER_VALIDATE_INT);
 
     if ($name === "") {
         $message = "Please enter your name.";
         $message_type = "error";
     } else {
-        // Find matching customer(s)
+        // Collect candidate customer IDs
+        // 1. Exact contact match first if contact was provided
+        $contact_customer_ids = [];
         if ($contact !== "") {
-            $cust_stmt = $conn->prepare("SELECT id FROM customers WHERE name = ? AND contact = ?");
-            $cust_stmt->bind_param("ss", $name, $contact);
-            $cust_stmt->execute();
-            $cust_res = $cust_stmt->get_result();
-            if ($cust_res->num_rows === 0) {
-                // Fallback: search by name in case contact was slightly formatted differently
-                $cust_stmt = $conn->prepare("SELECT id FROM customers WHERE name = ?");
-                $cust_stmt->bind_param("s", $name);
-                $cust_stmt->execute();
-                $cust_res = $cust_stmt->get_result();
+            $stmt = $conn->prepare("SELECT id FROM customers WHERE name = ? AND (contact = ? OR contact = ? OR contact = ?)");
+            $stmt->bind_param("ssss", $name, $contact, $rawContact, $digits);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $contact_customer_ids[] = (int)$row['id'];
             }
-        } else {
-            $cust_stmt = $conn->prepare("SELECT id FROM customers WHERE name = ?");
-            $cust_stmt->bind_param("s", $name);
-            $cust_stmt->execute();
-            $cust_res = $cust_stmt->get_result();
         }
 
-        if ($cust_res->num_rows === 0) {
-            $message = "Customer record not found. Please verify your name.";
-            $message_type = "error";
-        } else {
-            $customer_ids = [];
-            while ($row = $cust_res->fetch_assoc()) {
-                $customer_ids[] = (int)$row['id'];
-            }
+        // 2. All customer records matching the name
+        $name_stmt = $conn->prepare("SELECT id FROM customers WHERE name = ?");
+        $name_stmt->bind_param("s", $name);
+        $name_stmt->execute();
+        $name_res = $name_stmt->get_result();
+        $all_name_customer_ids = [];
+        while ($row = $name_res->fetch_assoc()) {
+            $all_name_customer_ids[] = (int)$row['id'];
+        }
 
-            // Fetch active borrowings with prepared statement
-            $placeholders = implode(',', array_fill(0, count($customer_ids), '?'));
-            $borrow_sql = "
+        // 3. Fallback: if name didn't match any record, check if contact matches
+        $all_contact_customer_ids = [];
+        if (empty($all_name_customer_ids) && $contact !== "") {
+            $c_stmt = $conn->prepare("SELECT id FROM customers WHERE contact = ? OR contact = ? OR contact = ?");
+            $c_stmt->bind_param("sss", $contact, $rawContact, $digits);
+            $c_stmt->execute();
+            $c_res = $c_stmt->get_result();
+            while ($row = $c_res->fetch_assoc()) {
+                $all_contact_customer_ids[] = (int)$row['id'];
+            }
+        }
+
+        // Helper to fetch active borrowings for a set of customer IDs
+        $fetch_active = function(array $ids) use ($conn): array {
+            if (empty($ids)) {
+                return [];
+            }
+            $ids = array_values(array_unique($ids));
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sql = "
                 SELECT borrowings.id, borrowings.book_id, books.title, books.author, borrowings.borrow_date, borrowings.due_date
                 FROM borrowings
                 JOIN books ON borrowings.book_id = books.id
@@ -62,72 +73,153 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 AND borrowings.status = 'Borrowed'
                 ORDER BY borrowings.borrow_date DESC
             ";
-            $b_stmt = $conn->prepare($borrow_sql);
-            $types = str_repeat('i', count($customer_ids));
-            $b_stmt->bind_param($types, ...$customer_ids);
-            $b_stmt->execute();
-            $borrow_result = $b_stmt->get_result();
+            $stmt = $conn->prepare($sql);
+            $types = str_repeat('i', count($ids));
+            $stmt->bind_param($types, ...$ids);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $items = [];
+            if ($res) {
+                while ($b = $res->fetch_assoc()) {
+                    $items[] = $b;
+                }
+            }
+            return $items;
+        };
 
-            if (!$borrow_result || $borrow_result->num_rows === 0) {
-                $message = "You do not have any active borrowed books to return.";
+        // Find active borrowings: try contact-matched first, then all name-matched, then contact-only matched
+        $active_items = [];
+        $matched_ids = [];
+
+        if (!empty($contact_customer_ids)) {
+            $active_items = $fetch_active($contact_customer_ids);
+            if (!empty($active_items)) {
+                $matched_ids = $contact_customer_ids;
+            }
+        }
+
+        if (empty($active_items) && !empty($all_name_customer_ids)) {
+            $active_items = $fetch_active($all_name_customer_ids);
+            if (!empty($active_items)) {
+                $matched_ids = $all_name_customer_ids;
+            }
+        }
+
+        if (empty($active_items) && !empty($all_contact_customer_ids)) {
+            $active_items = $fetch_active($all_contact_customer_ids);
+            if (!empty($active_items)) {
+                $matched_ids = $all_contact_customer_ids;
+            }
+        }
+
+        if (empty($active_items)) {
+            $all_known_ids = array_unique(array_merge($contact_customer_ids, $all_name_customer_ids, $all_contact_customer_ids));
+            if (empty($all_known_ids)) {
+                $message = "Customer record not found. Please verify your name.";
                 $message_type = "error";
             } else {
-                $active_items = [];
-                while ($b = $borrow_result->fetch_assoc()) {
-                    $active_items[] = $b;
+                // Check if customer had a recent return
+                $placeholders = implode(',', array_fill(0, count($all_known_ids), '?'));
+                $recent_sql = "
+                    SELECT books.title, borrowings.return_date
+                    FROM borrowings
+                    JOIN books ON borrowings.book_id = books.id
+                    WHERE borrowings.customer_id IN ($placeholders)
+                    AND borrowings.status = 'Returned'
+                    ORDER BY borrowings.return_date DESC
+                    LIMIT 1
+                ";
+                $r_stmt = $conn->prepare($recent_sql);
+                $types = str_repeat('i', count($all_known_ids));
+                $r_stmt->bind_param($types, ...$all_known_ids);
+                $r_stmt->execute();
+                $recent_res = $r_stmt->get_result();
+
+                if ($recent_res && $recent_row = $recent_res->fetch_assoc()) {
+                    $message = "Your book has already been returned: \"" . $recent_row['title'] . "\". You have no active borrowed books.";
+                    $message_type = "success";
+                } else {
+                    $message = "You do not have any active borrowed books to return.";
+                    $message_type = "error";
+                }
+            }
+        } else {
+            // Active items found
+            if ($selected_borrowing_id || count($active_items) === 1) {
+                $target = null;
+                if ($selected_borrowing_id) {
+                    foreach ($active_items as $item) {
+                        if ((int)$item['id'] === $selected_borrowing_id) {
+                            $target = $item;
+                            break;
+                        }
+                    }
+                } else {
+                    $target = $active_items[0];
                 }
 
-                // If a specific borrowing was selected, or if there is only 1 book borrowed
-                if ($selected_borrowing_id || count($active_items) === 1) {
-                    $target = null;
-                    if ($selected_borrowing_id) {
-                        foreach ($active_items as $item) {
-                            if ((int)$item['id'] === $selected_borrowing_id) {
-                                $target = $item;
-                                break;
+                if ($target) {
+                    $conn->begin_transaction();
+                    try {
+                        $ret_stmt = $conn->prepare("
+                            UPDATE borrowings
+                            SET return_date = NOW(), status = 'Returned'
+                            WHERE id = ? AND status = 'Borrowed'
+                        ");
+                        $ret_stmt->bind_param("i", $target['id']);
+                        $ret_stmt->execute();
+
+                        if ($ret_stmt->affected_rows > 0) {
+                            $bk_stmt = $conn->prepare("UPDATE books SET status = 'Available' WHERE id = ?");
+                            $bk_stmt->bind_param("i", $target['book_id']);
+                            $bk_stmt->execute();
+
+                            $conn->commit();
+                            $message = "Book returned successfully: " . $target['title'];
+                            $message_type = "success";
+
+                            // Refresh remaining active borrowings
+                            $remaining_active = $fetch_active($matched_ids);
+                            if (!empty($remaining_active)) {
+                                $multiple_borrowings = $remaining_active;
                             }
-                        }
-                    } else {
-                        $target = $active_items[0];
-                    }
-
-                    if ($target) {
-                        $conn->begin_transaction();
-                        try {
-                            $ret_stmt = $conn->prepare("
-                                UPDATE borrowings
-                                SET return_date = NOW(), status = 'Returned'
-                                WHERE id = ? AND status = 'Borrowed'
-                            ");
-                            $ret_stmt->bind_param("i", $target['id']);
-                            $ret_stmt->execute();
-
-                            if ($ret_stmt->affected_rows > 0) {
-                                $bk_stmt = $conn->prepare("UPDATE books SET status = 'Available' WHERE id = ?");
-                                $bk_stmt->bind_param("i", $target['book_id']);
-                                $bk_stmt->execute();
-
-                                $conn->commit();
-                                $message = "Book returned successfully: " . $target['title'];
-                                $message_type = "success";
-                            } else {
-                                $conn->rollback();
-                                $message = "This book was already returned or could not be found.";
-                                $message_type = "error";
-                            }
-                        } catch (\Throwable $e) {
+                        } else {
                             $conn->rollback();
-                            $message = "Something went wrong processing your return. Please try again.";
+                            $message = "This book was already returned: " . $target['title'];
+                            $message_type = "success";
+                        }
+                    } catch (\Throwable $e) {
+                        $conn->rollback();
+                        $message = "Something went wrong processing your return. Please try again.";
+                        $message_type = "error";
+                    }
+                } else {
+                    // Check if the selected borrowing was already returned
+                    if ($selected_borrowing_id) {
+                        $chk = $conn->prepare("SELECT books.title, borrowings.status FROM borrowings JOIN books ON borrowings.book_id = books.id WHERE borrowings.id = ?");
+                        $chk->bind_param("i", $selected_borrowing_id);
+                        $chk->execute();
+                        $chk_res = $chk->get_result();
+                        $chk_row = $chk_res ? $chk_res->fetch_assoc() : null;
+                        if ($chk_row && $chk_row['status'] === 'Returned') {
+                            $message = "This book was already returned: " . $chk_row['title'];
+                            $message_type = "success";
+                            $remaining_active = $fetch_active($matched_ids);
+                            if (!empty($remaining_active)) {
+                                $multiple_borrowings = $remaining_active;
+                            }
+                        } else {
+                            $message = "Selected book borrowing not found.";
                             $message_type = "error";
                         }
                     } else {
                         $message = "Selected book borrowing not found.";
                         $message_type = "error";
                     }
-                } else {
-                    // Multiple borrowings found; prompt user to pick
-                    $multiple_borrowings = $active_items;
                 }
+            } else {
+                // Multiple borrowings found; prompt user to pick
+                $multiple_borrowings = $active_items;
             }
         }
     }
@@ -349,7 +441,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <?php endif; ?>
 
             <?php if (!empty($multiple_borrowings)): ?>
-                <p><strong>You have multiple books borrowed. Please select which one to return:</strong></p>
+                <p><strong><?php echo ($message_type === "success") ? "You still have other borrowed books. Select which one to return:" : "You have multiple books borrowed. Please select which one to return:"; ?></strong></p>
                 <div class="borrowings-list">
                     <?php foreach ($multiple_borrowings as $b): ?>
                         <div class="borrowing-item">
@@ -357,7 +449,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 <h3><?php echo htmlspecialchars($b['title']); ?></h3>
                                 <p>by <?php echo htmlspecialchars($b['author']); ?> &bull; Due: <?php echo date("M d, Y", strtotime($b['due_date'])); ?></p>
                             </div>
-                            <form method="POST">
+                            <form method="POST" onsubmit="var b=this.querySelector('.select-return-btn'); if(b){ setTimeout(function(){ b.disabled=true; }, 0); b.innerHTML='<i data-heroicon=\'arrow-path\' class=\'heroicon-spin\'></i> Returning...'; if(window.heroicons){heroicons.createIcons({root:b});}}">
                                 <input type="hidden" name="name" value="<?php echo htmlspecialchars($customer_name_input); ?>">
                                 <input type="hidden" name="contact" value="<?php echo htmlspecialchars($customer_contact_input); ?>">
                                 <input type="hidden" name="borrowing_id" value="<?php echo (int)$b['id']; ?>">
@@ -369,7 +461,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <?php endforeach; ?>
                 </div>
             <?php elseif ($message_type !== "success"): ?>
-                <form method="POST" onsubmit="var b=this.querySelector('.return-button'); if(b){b.innerHTML='<i data-heroicon=\'arrow-path\' class=\'heroicon-spin\'></i> Processing...'; if(window.heroicons){heroicons.createIcons({root:b});}}">
+                <form method="POST" onsubmit="var b=this.querySelector('.return-button'); if(b){ setTimeout(function(){ b.disabled=true; }, 0); b.innerHTML='<i data-heroicon=\'arrow-path\' class=\'heroicon-spin\'></i> Processing...'; if(window.heroicons){heroicons.createIcons({root:b});}}">
                     <label for="name">Customer Name *</label>
                     <input
                         type="text"
@@ -393,6 +485,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         <i data-heroicon="check"></i> Confirm Return
                     </button>
                 </form>
+            <?php else: ?>
+                <a href="return.php" class="return-button" style="text-decoration: none;">
+                    <i data-heroicon="arrow-uturn-left"></i> Return Another Book
+                </a>
             <?php endif; ?>
 
             <div class="links-row">

@@ -102,4 +102,28 @@ function booktrack_logo_url(): string {
     return pagelounge_logo_url();
 }
 
+/**
+ * Normalizes customer contact input (handles PH mobile formats and email addresses).
+ */
+function pagelounge_normalize_contact(string $raw): string {
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    if (strpos($raw, '@') !== false) {
+        return strtolower($raw);
+    }
+    $digits = preg_replace('/[^0-9]/', '', $raw);
+    if ($digits === '') {
+        return $raw;
+    }
+    if (strlen($digits) === 12 && str_starts_with($digits, '63')) {
+        return '0' . substr($digits, 2);
+    }
+    if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
+        return '0' . $digits;
+    }
+    return $digits;
+}
+
 ?>
