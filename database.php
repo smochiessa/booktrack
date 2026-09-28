@@ -19,16 +19,37 @@ if ($colCheck && $colCheck->num_rows === 0) {
     $conn->query("ALTER TABLE `books` ADD COLUMN `image` VARCHAR(255) DEFAULT NULL AFTER `isbn`");
 }
 
+// Auto-migrate: ensure `admins` table exists and default librarian account is seeded
+$conn->query("CREATE TABLE IF NOT EXISTS `admins` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `username` VARCHAR(100) NOT NULL UNIQUE,
+    `password` VARCHAR(255) NOT NULL,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_admins_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+$adminCountCheck = $conn->query("SELECT COUNT(*) AS total FROM `admins`");
+if ($adminCountCheck) {
+    $adminCountRow = $adminCountCheck->fetch_assoc();
+    if (intval($adminCountRow['total'] ?? 0) === 0) {
+        $defaultUser = "librarian";
+        $defaultPassHash = password_hash("booktrack123", PASSWORD_DEFAULT);
+        $initStmt = $conn->prepare("INSERT INTO `admins` (`username`, `password`) VALUES (?, ?)");
+        if ($initStmt) {
+            $initStmt->bind_param("ss", $defaultUser, $defaultPassHash);
+            $initStmt->execute();
+            $initStmt->close();
+        }
+    }
+}
+
 $booksUploadDir = __DIR__ . '/uploads/books';
 if (!is_dir($booksUploadDir)) {
     @mkdir($booksUploadDir, 0755, true);
 }
 
-$logoSource = 'C:/Users/MCK/AppData/Local/Temp/claude/c--xampp-htdocs-booktrack/0be319c6-e747-4532-931d-0aa91a5f8520/images/1.jpg';
-$logoDest = __DIR__ . '/logo.jpg';
-if (!file_exists($logoDest) && file_exists($logoSource)) {
-    @copy($logoSource, $logoDest);
-}
+
 
 $qrLibSource = dirname(__DIR__) . '/classroom_finder/assets/js/vendor/html5-qrcode.min.js';
 $qrLibDest = __DIR__ . '/html5-qrcode.min.js';

@@ -109,7 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                || (isset($_POST['is_ajax']) && $_POST['is_ajax'] === '1');
     $book_id = filter_var($_POST['book_id'] ?? null, FILTER_VALIDATE_INT);
     $name = trim($_POST['name'] ?? '');
-    $contact = trim($_POST['contact'] ?? '');
+    $rawContact = trim($_POST['contact'] ?? '');
+    $digits = preg_replace('/[^0-9]/', '', $rawContact);
+    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
 
     if (!$book_id) {
         $borrow_flash_msg = "Please select a valid book to borrow.";
@@ -1692,13 +1694,13 @@ if ($search !== '') {
     </div>
 </div>
 
-<script src="../heroicons.js"></script>
+<script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script src="../html5-qrcode.min.js"></script>
 <script>
-    // Fallback load if local script is missing
+    // Fallback load if parent path fails
     if (typeof Html5Qrcode === 'undefined') {
         var s = document.createElement('script');
-        s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        s.src = 'html5-qrcode.min.js';
         document.head.appendChild(s);
     }
 </script>

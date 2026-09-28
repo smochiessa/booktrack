@@ -233,6 +233,9 @@ if (!empty($params)) {
                     <a href="borrowings.php" class="active">
                         <i data-heroicon="clock"></i> Borrowing History
                     </a>
+                    <a href="settings.php">
+                        <i data-heroicon="cog-6-tooth"></i> Account Settings
+                    </a>
                 </nav>
             </div>
 
@@ -371,7 +374,7 @@ if (!empty($params)) {
 
 </div>
 
-<script src="../heroicons.js"></script>
+<script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script>
     heroicons.createIcons();
     (function () {

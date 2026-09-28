@@ -31,7 +31,9 @@ if (!$book_id) {
 
 if (!$init_error && $_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST['name'] ?? '');
-    $contact = trim($_POST['contact'] ?? '');
+    $rawContact = trim($_POST['contact'] ?? '');
+    $digits = preg_replace('/[^0-9]/', '', $rawContact);
+    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
 
     if ($name === "") {
         $message = "Please enter your name.";
@@ -336,7 +338,7 @@ if (!$init_error && $_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
     </main>
 
-    <script src="../heroicons.js"></script>
+    <script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
     <script>
         heroicons.createIcons();
     </script>

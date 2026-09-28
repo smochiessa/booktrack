@@ -1,9 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+/* Offline Typography - local font discovery with resilient system fallbacks */
+@font-face {
+    font-family: 'Playfair Display';
+    font-style: normal;
+    font-weight: 400 700;
+    src: local('Playfair Display'), local('PlayfairDisplay-Regular'), local('PlayfairDisplay');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    font-style: normal;
+    font-weight: 400 700;
+    src: local('Plus Jakarta Sans'), local('PlusJakartaSans-Regular');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Alex Brush';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Alex Brush'), local('AlexBrush-Regular');
+    font-display: swap;
+}
 
 :root {
-    --font-serif: 'Playfair Display', Georgia, serif;
-    --font-script: 'Alex Brush', 'Dancing Script', cursive;
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-serif: 'Playfair Display', Constantia, Georgia, Cambria, 'Times New Roman', serif;
+    --font-script: 'Alex Brush', 'Dancing Script', 'Segoe Script', 'Brush Script MT', cursive;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
     /* Page Lounge Brand Colors extracted from Logo */
     --bg-canvas: #faf6f0;

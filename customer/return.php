@@ -12,7 +12,9 @@ $customer_contact_input = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST['name'] ?? '');
-    $contact = trim($_POST['contact'] ?? '');
+    $rawContact = trim($_POST['contact'] ?? '');
+    $digits = preg_replace('/[^0-9]/', '', $rawContact);
+    $contact = (str_starts_with($digits, '63') && strlen($digits) === 12) ? '0' . substr($digits, 2) : $digits;
     $customer_name_input = $name;
     $customer_contact_input = $contact;
     $selected_borrowing_id = filter_var($_POST['borrowing_id'] ?? null, FILTER_VALIDATE_INT);
@@ -49,18 +51,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             while ($row = $cust_res->fetch_assoc()) {
                 $customer_ids[] = (int)$row['id'];
             }
-            $in_clause = implode(',', $customer_ids);
 
-            // Fetch active borrowings
+            // Fetch active borrowings with prepared statement
+            $placeholders = implode(',', array_fill(0, count($customer_ids), '?'));
             $borrow_sql = "
                 SELECT borrowings.id, borrowings.book_id, books.title, books.author, borrowings.borrow_date, borrowings.due_date
                 FROM borrowings
                 JOIN books ON borrowings.book_id = books.id
-                WHERE borrowings.customer_id IN ($in_clause)
+                WHERE borrowings.customer_id IN ($placeholders)
                 AND borrowings.status = 'Borrowed'
                 ORDER BY borrowings.borrow_date DESC
             ";
-            $borrow_result = $conn->query($borrow_sql);
+            $b_stmt = $conn->prepare($borrow_sql);
+            $types = str_repeat('i', count($customer_ids));
+            $b_stmt->bind_param($types, ...$customer_ids);
+            $b_stmt->execute();
+            $borrow_result = $b_stmt->get_result();
 
             if (!$borrow_result || $borrow_result->num_rows === 0) {
                 $message = "You do not have any active borrowed books to return.";
@@ -397,7 +403,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
     </main>
 
-    <script src="../heroicons.js"></script>
+    <script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
     <script>
         heroicons.createIcons();
     </script>

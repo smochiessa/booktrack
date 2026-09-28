@@ -17,18 +17,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // Temporary librarian account
-    if ($username === "librarian" && $password === "booktrack123") {
-
-        $_SESSION['librarian'] = $username;
-
-        header("Location: dashboard.php");
-        exit();
-
+    if ($username === '' || $password === '') {
+        $error = "Please enter both username and password.";
     } else {
+        $stmt = $conn->prepare("SELECT id, username, password FROM admins WHERE username = ? LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($admin = $result->fetch_assoc()) {
+                $authenticated = false;
+
+                if (password_verify($password, $admin['password'])) {
+                    $authenticated = true;
+                } elseif ($password === $admin['password']) {
+                    // Transparent migration to secure hash
+                    $newHash = password_hash($password, PASSWORD_DEFAULT);
+                    $rehashStmt = $conn->prepare("UPDATE admins SET password = ? WHERE id = ?");
+                    if ($rehashStmt) {
+                        $rehashStmt->bind_param("si", $newHash, $admin['id']);
+                        $rehashStmt->execute();
+                        $rehashStmt->close();
+                    }
+                    $authenticated = true;
+                }
+
+                if ($authenticated) {
+                    $_SESSION['librarian'] = $admin['username'];
+                    $_SESSION['admin_id'] = (int)$admin['id'];
+                    header("Location: dashboard.php");
+                    exit();
+                }
+            }
+            $stmt->close();
+        }
 
         $error = "Invalid username or password.";
-
     }
 }
 
@@ -254,7 +279,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 </main>
 
-<script src="../heroicons.js"></script>
+<script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script>
     heroicons.createIcons();
 </script>

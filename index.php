@@ -71,7 +71,7 @@ $logo_url = pagelounge_logo_url();
 
     </main>
 
-    <script src="heroicons.js"></script>
+    <script src="heroicons.js?v=<?= @filemtime(__DIR__ . '/heroicons.js') ?: time() ?>"></script>
     <script>
         heroicons.createIcons();
     </script>

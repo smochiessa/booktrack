@@ -437,19 +437,19 @@ if (!empty($params)) {
         }
 
         .add-button {
-            padding: 10px 18px;
+            padding: 5px 12px;
             background: #2e2620;
             color: white;
             border: 1px solid #241e1a;
-            border-radius: 6px;
+            border-radius: 4px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
-            min-height: 42px;
+            min-height: 32px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 4px;
             transition: background 0.15s ease;
         }
 
@@ -661,7 +661,7 @@ if (!empty($params)) {
 
         .books-table {
             background: #ffffff;
-            padding: 24px 28px;
+            padding: 18px 20px;
             border-radius: 8px;
             border: 1px solid #e5dfd5;
             box-shadow: 0 1px 3px rgba(20, 14, 10, 0.04);
@@ -671,33 +671,33 @@ if (!empty($params)) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 14px;
             flex-wrap: wrap;
         }
 
         .inventory-toolbar-left {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .inventory-toolbar-left h2 {
             margin: 0;
-            font-size: 20px;
+            font-size: 17px;
             color: #241e1a;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
         }
 
         .inventory-status-tabs {
             display: inline-flex;
             align-items: center;
             background: #f4efe8;
-            padding: 3px;
-            border-radius: 8px;
+            padding: 2px;
+            border-radius: 6px;
             border: 1px solid #dfd7cc;
             gap: 2px;
         }
@@ -705,10 +705,10 @@ if (!empty($params)) {
         .status-tab {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            border-radius: 6px;
-            font-size: 13px;
+            gap: 5px;
+            padding: 4px 9px;
+            border-radius: 4px;
+            font-size: 12px;
             font-weight: 600;
             color: #6b625b;
             text-decoration: none;
@@ -728,9 +728,9 @@ if (!empty($params)) {
         }
 
         .status-tab .tab-badge {
-            font-size: 11px;
-            padding: 1px 6px;
-            border-radius: 10px;
+            font-size: 10.5px;
+            padding: 1px 5px;
+            border-radius: 8px;
             background: rgba(0, 0, 0, 0.08);
             color: inherit;
         }
@@ -743,28 +743,30 @@ if (!empty($params)) {
         .inventory-toolbar-right {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
         .search-form {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             margin: 0;
         }
 
         .search-form input {
-            width: 280px;
+            width: 240px;
             max-width: 100%;
-            padding: 10px 14px;
+            height: 32px;
+            padding: 5px 10px;
             border: 1px solid #d5cbbe;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: 4px;
+            font-size: 12.5px;
             background: #ffffff;
             color: #2e2620;
             outline: none;
             transition: border-color 0.15s ease, outline 0.15s ease;
+            box-sizing: border-box;
         }
 
         .search-form input:focus {
@@ -778,16 +780,16 @@ if (!empty($params)) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            padding: 10px 16px;
+            gap: 4px;
+            padding: 5px 11px;
             background: #2e2620;
             color: white;
             border: 1px solid #241e1a;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: 4px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
-            min-height: 42px;
+            min-height: 32px;
             white-space: nowrap;
             transition: background 0.15s ease;
         }
@@ -800,16 +802,16 @@ if (!empty($params)) {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 10px 14px;
+            padding: 5px 9px;
             background: #f4efe8;
             color: #2e2620;
             text-decoration: none;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: 4px;
+            font-size: 12px;
             font-weight: 600;
             border: 1px solid #d5cbbe;
             white-space: nowrap;
-            min-height: 42px;
+            min-height: 32px;
             transition: background 0.15s ease;
         }
 
@@ -857,25 +859,26 @@ if (!empty($params)) {
 
         .books-inventory-table {
             width: 100%;
-            min-width: 980px;
+            min-width: 860px;
             border-collapse: collapse;
             table-layout: auto;
         }
 
         .books-inventory-table th,
         .books-inventory-table td {
-            padding: 12px 14px;
+            padding: 7px 10px;
             border-bottom: 1px solid #eae4db;
-            font-size: 13.5px;
+            font-size: 13px;
             vertical-align: middle;
         }
 
         .books-inventory-table th {
+            padding: 8px 10px;
             background: #f7f3ec;
             color: #2e2620;
             font-weight: 600;
             border-bottom: 1px solid #dfd7cc;
-            font-size: 12.5px;
+            font-size: 12px;
             letter-spacing: 0.3px;
             white-space: nowrap;
         }
@@ -890,47 +893,47 @@ if (!empty($params)) {
 
         /* Column Specific Alignments & Widths */
         .col-id {
-            width: 55px;
+            width: 44px;
             text-align: center !important;
         }
 
         .col-cover {
-            width: 72px;
+            width: 46px;
             text-align: center !important;
         }
 
         .col-title {
-            min-width: 180px;
+            min-width: 160px;
             text-align: left !important;
         }
 
         .col-author {
-            min-width: 130px;
+            min-width: 110px;
             text-align: left !important;
         }
 
         .col-category {
-            width: 115px;
+            width: 95px;
             text-align: left !important;
         }
 
         .col-isbn {
-            width: 130px;
+            width: 105px;
             text-align: left !important;
         }
 
         .col-qr {
-            width: 95px;
+            width: 72px;
             text-align: center !important;
         }
 
         .col-status {
-            width: 115px;
+            width: 92px;
             text-align: center !important;
         }
 
         .col-action {
-            width: 175px;
+            width: 136px;
             text-align: center !important;
         }
 
@@ -938,79 +941,82 @@ if (!empty($params)) {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-weight: 700;
             color: #554b43;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .col-title strong,
         .book-title-cell strong,
         .book-title-cell {
             color: #241e1a;
-            font-size: 14.5px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 600;
         }
 
         .category-badge {
             display: inline-block;
             background: #f4efe8;
             color: #4a3f35;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 11.5px;
             font-weight: 500;
             border: 1px solid #dfd7cc;
         }
 
         .isbn-tag {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            font-size: 12.5px;
+            font-size: 12px;
             color: #6b625b;
         }
 
         .muted-text {
             color: #9e9389;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         .qr-preview-box {
             display: inline-flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 2px;
         }
 
         .qr-thumb-img {
             display: block;
-            width: 50px;
-            height: 50px;
-            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+            border-radius: 3px;
             border: 1px solid #dcd4c8;
             background: #ffffff;
             transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
         }
 
         .qr-preview-box a:hover .qr-thumb-img {
-            transform: scale(1.08);
+            transform: scale(2.4);
             border-color: #2e2620;
-            box-shadow: 0 4px 10px rgba(46, 38, 32, 0.15);
+            box-shadow: 0 4px 12px rgba(46, 38, 32, 0.22);
+            position: relative;
+            z-index: 20;
         }
 
         .qr-token-label {
-            font-size: 11px;
+            font-size: 10px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             color: #6b625b;
             background: #f4efe8;
-            padding: 1px 5px;
-            border-radius: 3px;
+            padding: 0 4px;
+            border-radius: 2px;
             border: 1px solid #e3dbd0;
             font-weight: 500;
             white-space: nowrap;
+            line-height: 1.3;
         }
 
         .qr-generate-link {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 12px;
+            font-size: 11.5px;
             color: #2e2620;
             text-decoration: underline;
             font-weight: 500;
@@ -1023,11 +1029,11 @@ if (!empty($params)) {
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            font-size: 12px;
-            padding: 4px 9px;
-            border-radius: 4px;
-            letter-spacing: 0.3px;
+            gap: 3px;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 3px;
+            letter-spacing: 0.2px;
             white-space: nowrap;
         }
 
@@ -1038,11 +1044,11 @@ if (!empty($params)) {
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            font-size: 12px;
-            padding: 4px 9px;
-            border-radius: 4px;
-            letter-spacing: 0.3px;
+            gap: 3px;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 3px;
+            letter-spacing: 0.2px;
             white-space: nowrap;
         }
 
@@ -1050,15 +1056,15 @@ if (!empty($params)) {
             background: #c62828;
             color: white;
             border: 1px solid #b71c1c;
-            min-height: 36px;
-            padding: 8px 14px;
-            border-radius: 6px;
+            min-height: 28px;
+            padding: 4px 8px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
             white-space: nowrap;
             transition: background 0.15s ease;
         }
@@ -1071,15 +1077,15 @@ if (!empty($params)) {
             background: #f4efe8;
             color: #2e2620;
             border: 1px solid #d5cbbe;
-            min-height: 36px;
-            padding: 8px 13px;
-            border-radius: 6px;
+            min-height: 28px;
+            padding: 4px 8px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 3px;
             white-space: nowrap;
             transition: background 0.15s ease, border-color 0.15s ease;
         }
@@ -1093,7 +1099,7 @@ if (!empty($params)) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 4px;
             margin: 0 auto;
             white-space: nowrap;
         }
@@ -1102,16 +1108,16 @@ if (!empty($params)) {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            padding: 7px 11px;
+            gap: 3px;
+            padding: 4px 7px;
             background: #f4efe8;
             color: #7a6e64;
-            border-radius: 6px;
-            font-size: 12px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: 600;
             border: 1px solid #dfd7cc;
             white-space: nowrap;
-            min-height: 36px;
+            min-height: 28px;
             box-sizing: border-box;
         }
 
@@ -1121,46 +1127,48 @@ if (!empty($params)) {
         }
 
         .book-thumb-img {
-            width: 42px;
-            height: 56px;
+            width: 28px;
+            height: 38px;
             object-fit: cover;
-            border-radius: 4px;
+            border-radius: 3px;
             border: 1px solid #dcd4c8;
             background: #ffffff;
             display: block;
             margin: 0 auto;
-            box-shadow: 0 1px 3px rgba(46, 38, 32, 0.08);
+            box-shadow: 0 1px 2px rgba(46, 38, 32, 0.08);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
 
         .book-thumb-img:hover {
-            transform: scale(1.12);
-            box-shadow: 0 4px 10px rgba(46, 38, 32, 0.18);
+            transform: scale(2.2);
+            box-shadow: 0 6px 16px rgba(46, 38, 32, 0.25);
+            position: relative;
+            z-index: 20;
         }
 
         .book-thumb-empty {
-            width: 42px;
-            height: 56px;
-            border-radius: 4px;
+            width: 28px;
+            height: 38px;
+            border-radius: 3px;
             border: 1px dashed #d5cbbe;
             background: #faf7f3;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
+            gap: 1px;
             margin: 0 auto;
             color: #a89f91;
         }
 
         .book-thumb-empty svg {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             opacity: 0.6;
         }
 
         .book-thumb-empty span {
-            font-size: 8.5px;
+            font-size: 7.5px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.2px;
@@ -1374,6 +1382,9 @@ if (!empty($params)) {
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                    </a>
+                    <a href="settings.php">
+                        <i data-heroicon="cog-6-tooth"></i> Account Settings
                     </a>
                 </nav>
             </div>
@@ -1766,8 +1777,8 @@ if (!empty($params)) {
                                                 <img
                                                     src="../<?php echo htmlspecialchars($book['qr_code']); ?>"
                                                     alt="QR Code"
-                                                    width="48"
-                                                    height="48"
+                                                    width="32"
+                                                    height="32"
                                                     class="qr-thumb-img"
                                                 >
                                             </a>
@@ -1889,7 +1900,7 @@ if (!empty($params)) {
 
 </div>
 
-<script src="../heroicons.js"></script>
+<script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script>
     heroicons.createIcons();
     (function () {

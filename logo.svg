@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%" aria-label="Page Lounge Book Café Logo">
   <defs>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&amp;family=Playfair+Display:ital,wght@0,700;1,400&amp;display=swap');
       .cls-circle { fill: none; stroke: #362115; stroke-width: 4; stroke-linecap: round; }
-      .cls-page { font-family: 'Playfair Display', Georgia, serif; font-size: 78px; font-weight: 700; fill: #362115; }
-      .cls-lounge { font-family: 'Alex Brush', 'Dancing Script', cursive; font-size: 82px; fill: #444b3c; }
-      .cls-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 5px; fill: #362115; }
-      .cls-tagline { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 3.5px; fill: #362115; }
+      .cls-page { font-family: 'Playfair Display', Constantia, Georgia, Cambria, serif; font-size: 78px; font-weight: 700; fill: #362115; }
+      .cls-lounge { font-family: 'Alex Brush', 'Dancing Script', 'Segoe Script', 'Brush Script MT', cursive; font-size: 82px; fill: #444b3c; }
+      .cls-sub { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 5px; fill: #362115; }
+      .cls-tagline { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 600; letter-spacing: 3.5px; fill: #362115; }
     </style>
     <path id="tagline-path" d="M 125,370 A 185,185 0 0,0 375,370" fill="none" />
   </defs>
