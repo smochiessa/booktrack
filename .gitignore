@@ -6,6 +6,7 @@
 # Markdown documents
 *.md
 **/*.md
+!README.md
 
 # Environment & OS files
 .env
