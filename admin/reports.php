@@ -485,41 +485,26 @@ else {
             font-size: 11.5px;
         }
 
-        /* KPI Stat Cards - Compact Single Row */
-        .report-kpi-grid {
+        /* Summary Metrics - Inline Text Bar */
+        .report-summary-bar {
+            padding: 4px 0;
+            margin-bottom: 12px;
             display: flex;
-            flex-wrap: nowrap;
-            gap: 8px;
-            margin-bottom: 14px;
-            width: 100%;
-        }
-
-        .kpi-card {
-            flex: 1 1 0;
-            min-width: 0;
-            background: #ffffff;
-            border: 1px solid #000000;
-            border-radius: 0;
-            padding: 5px 8px;
-        }
-
-        .kpi-label {
-            font-size: 9.5px;
-            font-weight: 700;
+            align-items: center;
+            font-size: 11px;
             color: #000000;
+            flex-wrap: wrap;
+            gap: 16px 24px;
+        }
+
+        .summary-bar-item {
+            white-space: nowrap;
+        }
+
+        .summary-bar-item strong {
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .kpi-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: #000000;
-            line-height: 1.2;
         }
 
         /* Report Table - Normal Compact Design */
@@ -713,32 +698,17 @@ else {
                 color: #000000 !important;
             }
 
-            .report-kpi-grid {
+            .report-summary-bar {
+                padding: 2px 0 !important;
+                margin-bottom: 8px !important;
+                font-size: 8pt !important;
                 display: flex !important;
-                flex-wrap: nowrap !important;
-                gap: 6px !important;
-                margin-bottom: 12px !important;
-                width: 100% !important;
+                align-items: center !important;
+                gap: 6px 16px !important;
             }
 
-            .kpi-card {
-                flex: 1 1 0 !important;
-                min-width: 0 !important;
-                background: #ffffff !important;
-                border: 1px solid #000000 !important;
-                padding: 4px 6px !important;
-                border-radius: 0 !important;
-            }
-
-            .kpi-label {
-                font-size: 6.5pt !important;
-                white-space: nowrap !important;
-                color: #000000 !important;
-            }
-
-            .kpi-value {
-                font-size: 11pt !important;
-                color: #000000 !important;
+            .summary-bar-item strong {
+                font-weight: 700 !important;
             }
 
             .report-table {
@@ -995,51 +965,21 @@ else {
                     <p><?php echo htmlspecialchars($report_subtitle); ?></p>
                 </div>
 
-                <!-- KPI Stats Grid -->
-                <div class="report-kpi-grid">
+                <!-- Summary Metrics Bar -->
+                <div class="report-summary-bar">
                     <?php if ($report_type === 'borrowings'): ?>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Total Transactions</div>
-                            <div class="kpi-value"><?php echo $stat_total; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Active Borrowed</div>
-                            <div class="kpi-value"><?php echo $stat_active; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Overdue Records</div>
-                            <div class="kpi-value"><?php echo $stat_overdue; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Completed Returns</div>
-                            <div class="kpi-value"><?php echo $stat_returned; ?></div>
-                        </div>
+                        <div class="summary-bar-item"><strong>Total Transactions:</strong> <?php echo $stat_total; ?></div>
+                        <div class="summary-bar-item"><strong>Active Borrowed:</strong> <?php echo $stat_active; ?></div>
+                        <div class="summary-bar-item"><strong>Overdue Records:</strong> <?php echo $stat_overdue; ?></div>
+                        <div class="summary-bar-item"><strong>Completed Returns:</strong> <?php echo $stat_returned; ?></div>
                     <?php elseif ($report_type === 'overdue'): ?>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Total Overdue</div>
-                            <div class="kpi-value"><?php echo $stat_total; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Delinquent Customers</div>
-                            <div class="kpi-value"><?php echo $stat_customers; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Longest Delinquency</div>
-                            <div class="kpi-value"><?php echo $max_days; ?> days</div>
-                        </div>
+                        <div class="summary-bar-item"><strong>Total Overdue:</strong> <?php echo $stat_total; ?></div>
+                        <div class="summary-bar-item"><strong>Delinquent Customers:</strong> <?php echo $stat_customers; ?></div>
+                        <div class="summary-bar-item"><strong>Longest Delinquency:</strong> <?php echo $max_days; ?> days</div>
                     <?php else: ?>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Total Titles Listed</div>
-                            <div class="kpi-value"><?php echo $stat_total; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Available on Shelf</div>
-                            <div class="kpi-value"><?php echo $stat_available; ?></div>
-                        </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Currently Borrowed</div>
-                            <div class="kpi-value"><?php echo $stat_borrowed; ?></div>
-                        </div>
+                        <div class="summary-bar-item"><strong>Total Titles Listed:</strong> <?php echo $stat_total; ?></div>
+                        <div class="summary-bar-item"><strong>Available on Shelf:</strong> <?php echo $stat_available; ?></div>
+                        <div class="summary-bar-item"><strong>Currently Borrowed:</strong> <?php echo $stat_borrowed; ?></div>
                     <?php endif; ?>
                 </div>
 
