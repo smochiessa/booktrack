@@ -205,6 +205,9 @@ if ($search !== '') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse Books - Page Lounge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
     <style>
         .books-page {
@@ -1350,18 +1353,119 @@ if ($search !== '') {
                 justify-content: center;
             }
 
+            .books-page {
+                padding: 16px 12px 36px;
+            }
+
             .books-container {
-                grid-template-columns: 1fr;
-                gap: 18px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
             }
 
             .book-card {
-                height: 420px;
+                height: 310px;
+                border-radius: 10px;
+            }
+
+            .book-card-status-badge {
+                top: 8px;
+                right: 8px;
+                font-size: 9.5px;
+                padding: 2.5px 7px;
+                border-radius: 12px;
+                gap: 3px;
+            }
+
+            .book-card-status-badge svg {
+                width: 11px;
+                height: 11px;
+            }
+
+            .badge-prefix-full {
+                display: none;
             }
 
             .book-card-overlay {
-                padding: 10px 12px 12px;
-                gap: 5px;
+                padding: 8px 8px 10px;
+                gap: 4px;
+            }
+
+            .book-card-glass-title,
+            .book-card-title-text {
+                font-size: 13px;
+                line-height: 1.25;
+            }
+
+            .meta-item-row {
+                font-size: 10.5px;
+                gap: 3px;
+            }
+
+            .meta-item-row .meta-label {
+                font-size: 10px;
+            }
+
+            .glass-meta-pills,
+            .book-meta-inline {
+                font-size: 10px;
+                gap: 4px;
+            }
+
+            .glass-category-pill,
+            .book-category-pill,
+            .glass-isbn-code,
+            .book-isbn-code {
+                font-size: 10px !important;
+            }
+
+            .glass-borrow-btn,
+            .book-card-borrow-btn,
+            .glass-unavailable-btn,
+            .book-card-unavailable-btn {
+                min-height: 32px;
+                height: 32px;
+                padding: 4px 6px;
+                font-size: 11.5px;
+                border-radius: 5px;
+                gap: 4px;
+            }
+
+            .glass-borrow-btn svg,
+            .book-card-borrow-btn svg {
+                width: 12px;
+                height: 12px;
+            }
+
+            .book-card-placeholder-bg svg {
+                width: 40px;
+                height: 40px;
+            }
+
+            .book-card-placeholder-bg span {
+                font-size: 9px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .books-page {
+                padding: 12px 8px 30px;
+            }
+
+            .books-container {
+                gap: 8px;
+            }
+
+            .book-card {
+                height: 290px;
+            }
+
+            .book-card-title-text {
+                font-size: 12px;
+            }
+
+            .glass-borrow-btn,
+            .book-card-borrow-btn {
+                font-size: 11px;
             }
         }
     </style>
@@ -1464,7 +1568,7 @@ if ($search !== '') {
                         </div>
                     <?php else: ?>
                         <div class="book-card-status-badge borrowed status-indicator">
-                            <i data-heroicon="clock"></i> Currently Borrowed
+                            <i data-heroicon="clock"></i> <span class="badge-prefix-full">Currently </span>Borrowed
                         </div>
                     <?php endif; ?>
 
@@ -2072,7 +2176,7 @@ if ($search !== '') {
                         var statusIndicator = card.querySelector('.status-indicator');
                         if (statusIndicator) {
                             statusIndicator.className = 'book-card-status-badge borrowed status-indicator';
-                            statusIndicator.innerHTML = '<i data-heroicon="clock"></i> Currently Borrowed';
+                            statusIndicator.innerHTML = '<i data-heroicon="clock"></i> <span class="badge-prefix-full">Currently </span>Borrowed';
                         }
                         var borrowBtn = card.querySelector('.js-borrow-trigger');
                         if (borrowBtn) {

@@ -86,6 +86,9 @@ $transactions_query = $conn->query(
 
     <title>Librarian Dashboard - Page Lounge</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
 
 
@@ -134,7 +137,8 @@ $transactions_query = $conn->query(
         }
 
         .stat-card h3 {
-            font-size: 14px;
+            font-family: var(--font-sans);
+            font-size: 13px;
             color: #6b625b;
             margin-bottom: 10px;
             display: flex;
@@ -230,6 +234,68 @@ $transactions_query = $conn->query(
             background: #fdeeed;
             color: #c62828;
             border: 1px solid #ffcdd2;
+        }
+
+        @media (max-width: 640px) {
+            .dashboard-header {
+                margin-bottom: 16px;
+            }
+
+            .dashboard-header h1 {
+                font-size: 22px;
+                gap: 8px;
+                margin-bottom: 4px;
+            }
+
+            .dashboard-header p {
+                font-size: 13.5px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .stat-card {
+                padding: 14px 12px;
+            }
+
+            .stat-card h3 {
+                font-size: 11.5px;
+                margin-bottom: 6px;
+                gap: 5px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .stat-card h3 svg,
+            .stat-card h3 [data-heroicon] {
+                width: 13px;
+                height: 13px;
+                flex-shrink: 0;
+            }
+
+            .stat-number {
+                font-size: 26px;
+            }
+
+            .transactions {
+                padding: 16px 14px;
+            }
+
+            .transactions h2 {
+                font-size: 17px;
+                margin-bottom: 12px;
+                gap: 6px;
+            }
+
+            th, td {
+                padding: 9px 10px;
+                font-size: 12.5px;
+                white-space: nowrap;
+            }
         }
 
     </style>
