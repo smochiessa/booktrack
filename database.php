@@ -19,6 +19,35 @@ if ($colCheck && $colCheck->num_rows === 0) {
     $conn->query("ALTER TABLE `books` ADD COLUMN `image` VARCHAR(255) DEFAULT NULL AFTER `isbn`");
 }
 
+// Auto-migrate: ensure `total_copies` and `available_copies` exist in `books` table
+$bookTotalCopiesCheck = $conn->query("SHOW COLUMNS FROM `books` LIKE 'total_copies'");
+if ($bookTotalCopiesCheck && $bookTotalCopiesCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `books` ADD COLUMN `total_copies` INT NOT NULL DEFAULT 1 AFTER `status`");
+}
+$bookAvailCopiesCheck = $conn->query("SHOW COLUMNS FROM `books` LIKE 'available_copies'");
+if ($bookAvailCopiesCheck && $bookAvailCopiesCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `books` ADD COLUMN `available_copies` INT NOT NULL DEFAULT 1 AFTER `total_copies`");
+    $conn->query("UPDATE `books` SET `available_copies` = 0 WHERE `status` = 'Borrowed'");
+}
+
+// Auto-migrate: ensure customer authentication and ID verification columns exist in `customers` table
+$custEmailCheck = $conn->query("SHOW COLUMNS FROM `customers` LIKE 'email'");
+if ($custEmailCheck && $custEmailCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `customers` ADD COLUMN `email` VARCHAR(191) NULL UNIQUE AFTER `name`");
+}
+$custPassCheck = $conn->query("SHOW COLUMNS FROM `customers` LIKE 'password'");
+if ($custPassCheck && $custPassCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `customers` ADD COLUMN `password` VARCHAR(255) NULL AFTER `email`");
+}
+$custIdCheck = $conn->query("SHOW COLUMNS FROM `customers` LIKE 'id_image'");
+if ($custIdCheck && $custIdCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `customers` ADD COLUMN `id_image` VARCHAR(255) NULL AFTER `contact`");
+}
+$custStatusCheck = $conn->query("SHOW COLUMNS FROM `customers` LIKE 'account_status'");
+if ($custStatusCheck && $custStatusCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE `customers` ADD COLUMN `account_status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending' AFTER `id_image`");
+}
+
 // Auto-migrate: ensure `admins` table exists and default librarian account is seeded
 $conn->query("CREATE TABLE IF NOT EXISTS `admins` (
     `id` INT NOT NULL AUTO_INCREMENT,
@@ -47,6 +76,11 @@ if ($adminCountCheck) {
 $booksUploadDir = __DIR__ . '/uploads/books';
 if (!is_dir($booksUploadDir)) {
     @mkdir($booksUploadDir, 0755, true);
+}
+
+$customerIdsDir = __DIR__ . '/uploads/customer_ids';
+if (!is_dir($customerIdsDir)) {
+    @mkdir($customerIdsDir, 0755, true);
 }
 
 
@@ -124,6 +158,14 @@ function pagelounge_normalize_contact(string $raw): string {
         return '0' . $digits;
     }
     return $digits;
+}
+
+/**
+ * Returns count of customers awaiting ID verification.
+ */
+function pagelounge_pending_customers_count(mysqli $conn): int {
+    $res = $conn->query("SELECT COUNT(*) AS total FROM customers WHERE account_status = 'Pending'");
+    return $res ? (int)($res->fetch_assoc()['total'] ?? 0) : 0;
 }
 
 ?>

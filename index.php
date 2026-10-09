@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once __DIR__ . '/database.php';
 $logo_url = pagelounge_logo_url();
 ?>
@@ -35,7 +36,14 @@ $logo_url = pagelounge_logo_url();
         </a>
 
         <div class="header-actions">
-            <span class="header-text">Where books meet comfort</span>
+            <?php if (isset($_SESSION['customer_id'])): ?>
+                <span style="font-size: 13px; color: #554b43;">
+                    Hello, <strong><?php echo htmlspecialchars($_SESSION['customer_name']); ?></strong>
+                </span>
+                <a href="customer/logout.php" class="header-admin-btn" style="background:#f4efe8; color:#2e2620; border-color:#d5cbbe;">Logout</a>
+            <?php else: ?>
+                <a href="customer/login.php" class="header-admin-btn" style="background:#f4efe8; color:#2e2620; border-color:#d5cbbe;">Customer Login</a>
+            <?php endif; ?>
             <a href="admin/login.php" class="header-admin-btn">Librarian Login</a>
         </div>
 

@@ -1,9 +1,11 @@
 <?php
+session_start();
 
 require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
 $search = trim($_GET['search'] ?? '');
+$is_customer_logged_in = isset($_SESSION['customer_id']);
 
 // Handle AJAX Book Token/ID Lookup
 if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
@@ -27,7 +29,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
 
     $book = null;
     if ($book_id !== null) {
-        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status FROM books WHERE id = ?");
+        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status, total_copies, available_copies FROM books WHERE id = ?");
         $stmt->bind_param("i", $book_id);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -39,7 +41,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
     // Lookup by ISBN if not matched by ID
     if (!$book) {
         $cleanIsbn = preg_replace('/[^0-9X]/i', '', $token);
-        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status FROM books WHERE isbn = ? OR REPLACE(isbn, '-', '') = ?");
+        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status, total_copies, available_copies FROM books WHERE isbn = ? OR REPLACE(isbn, '-', '') = ?");
         $stmt->bind_param("ss", $token, $cleanIsbn);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -51,7 +53,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
     // Lookup by stored QR path if applicable
     if (!$book) {
         $likeToken = "%" . $token . "%";
-        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status FROM books WHERE qr_code LIKE ?");
+        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status, total_copies, available_copies FROM books WHERE qr_code LIKE ?");
         $stmt->bind_param("s", $likeToken);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -63,7 +65,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
     // Lookup by Title match
     if (!$book) {
         $likeTitle = "%" . $token . "%";
-        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status FROM books WHERE title LIKE ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, title, author, category, isbn, image, status, total_copies, available_copies FROM books WHERE title LIKE ? LIMIT 1");
         $stmt->bind_param("s", $likeTitle);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -87,7 +89,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
                 'isbn' => $book['isbn'] ?: 'N/A',
                 'image' => $imgUrl,
                 'status' => $book['status'],
-                'is_available' => ($book['status'] === 'Available'),
+                'total_copies' => (int)($book['total_copies'] ?? 1),
+                'available_copies' => (int)($book['available_copies'] ?? 1),
+                'is_available' => ((int)($book['available_copies'] ?? 1) > 0),
             ]
         ]);
     } else {
@@ -99,83 +103,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
     exit;
 }
 
-// Handle Borrowing Submission
-$borrow_flash_msg = "";
-$borrow_flash_type = "";
-$borrow_flash_due = "";
-
+// Redirect any legacy borrow POST submissions to the customer checkout flow
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'borrow') {
-    $is_ajax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-               || (isset($_POST['is_ajax']) && $_POST['is_ajax'] === '1');
     $book_id = filter_var($_POST['book_id'] ?? null, FILTER_VALIDATE_INT);
-    $name = trim(preg_replace('/\s+/', ' ', $_POST['name'] ?? ''));
-    $rawContact = trim($_POST['contact'] ?? '');
-    $contact = pagelounge_normalize_contact($rawContact);
-
-    if (!$book_id) {
-        $borrow_flash_msg = "Please select a valid book to borrow.";
-        $borrow_flash_type = "error";
-    } elseif ($name === "") {
-        $borrow_flash_msg = "Please enter your full name.";
-        $borrow_flash_type = "error";
-    } else {
-        $conn->begin_transaction();
-        try {
-            // Atomic update to ensure book is available and prevent double borrowing
-            $update_stmt = $conn->prepare("UPDATE books SET status = 'Borrowed' WHERE id = ? AND status = 'Available'");
-            $update_stmt->bind_param("i", $book_id);
-            $update_stmt->execute();
-
-            if ($update_stmt->affected_rows === 0) {
-                $conn->rollback();
-                $borrow_flash_msg = "Sorry, this book is currently borrowed or unavailable.";
-                $borrow_flash_type = "error";
-            } else {
-                // Customer lookup or insert
-                $cust_stmt = $conn->prepare("SELECT id FROM customers WHERE name = ? AND contact = ?");
-                $cust_stmt->bind_param("ss", $name, $contact);
-                $cust_stmt->execute();
-                $cust_res = $cust_stmt->get_result();
-
-                if ($cust_res && $cust_res->num_rows > 0) {
-                    $customer_id = (int)$cust_res->fetch_assoc()['id'];
-                } else {
-                    $insert_cust = $conn->prepare("INSERT INTO customers (name, contact) VALUES (?, ?)");
-                    $insert_cust->bind_param("ss", $name, $contact);
-                    $insert_cust->execute();
-                    $customer_id = (int)$conn->insert_id;
-                }
-
-                // 7 days standard borrowing loan
-                $due_timestamp = strtotime("+7 days");
-                $due_date_sql = date("Y-m-d H:i:s", $due_timestamp);
-                $borrow_flash_due = date("M d, Y", $due_timestamp);
-
-                $borrow_stmt = $conn->prepare("INSERT INTO borrowings (customer_id, book_id, due_date, status) VALUES (?, ?, ?, 'Borrowed')");
-                $borrow_stmt->bind_param("iis", $customer_id, $book_id, $due_date_sql);
-                $borrow_stmt->execute();
-
-                $conn->commit();
-                $borrow_flash_msg = "Book borrowed successfully!";
-                $borrow_flash_type = "success";
-            }
-        } catch (\Throwable $e) {
-            $conn->rollback();
-            $borrow_flash_msg = "An error occurred while processing your request. Please try again.";
-            $borrow_flash_type = "error";
-        }
-    }
-
-    if ($is_ajax) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'ok' => ($borrow_flash_type === 'success'),
-            'message' => $borrow_flash_msg,
-            'type' => $borrow_flash_type,
-            'due_date' => $borrow_flash_due
-        ]);
+    if (!isset($_SESSION['customer_id'])) {
+        header("Location: login.php" . ($book_id ? "?redirect=borrow&book_id=" . $book_id : ""));
         exit;
     }
+    header("Location: borrow.php" . ($book_id ? "?book_id=" . $book_id : ""));
+    exit;
 }
 
 // Search Query
@@ -634,6 +570,7 @@ if ($search !== '') {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
+            text-decoration: none;
             transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
         }
 
@@ -641,6 +578,8 @@ if ($search !== '') {
         .book-card-borrow-btn:hover {
             background: #44372e;
             border-color: #d8c29d;
+            color: #ffffff !important;
+            text-decoration: none;
             transform: translateY(-1px);
         }
 
@@ -790,7 +729,7 @@ if ($search !== '') {
             border-radius: 8px;
             overflow: hidden;
             width: 100%;
-            max-width: 320px;
+            max-width: 340px;
             aspect-ratio: 1 / 1;
             margin: 0 auto 18px;
             display: flex;
@@ -915,289 +854,6 @@ if ($search !== '') {
             border: 1px solid #d5cbbe;
         }
 
-        /* Borrow Confirmation Modal Styles */
-        .borrow-book-card {
-            background: #faf7f3;
-            border: 1px solid #eae4db;
-            border-radius: 6px;
-            padding: 16px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-
-        .borrow-modal-thumb-box {
-            flex: 0 0 72px;
-            width: 72px;
-            height: 98px;
-            border-radius: 6px;
-            overflow: hidden;
-            border: 1px solid #dcd4c8;
-            background: #f4efe8;
-            box-shadow: 0 2px 6px rgba(46, 38, 32, 0.08);
-        }
-
-        .borrow-modal-thumb-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .borrow-modal-thumb-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #8b7d72;
-            gap: 2px;
-            background: #efe9e0;
-        }
-
-        .borrow-modal-thumb-placeholder svg {
-            width: 24px;
-            height: 24px;
-            opacity: 0.6;
-        }
-
-        .borrow-modal-thumb-placeholder span {
-            font-size: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .borrow-book-details {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .borrow-book-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 7px;
-            border-radius: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            margin-bottom: 8px;
-        }
-
-        .borrow-book-badge.available {
-            background: #edf7ed;
-            color: #1e6b24;
-            border: 1px solid #c8e6c9;
-        }
-
-        .borrow-book-badge.borrowed {
-            background: #fff8e1;
-            color: #8a5200;
-            border: 1px solid #ffe082;
-        }
-
-        .borrow-book-title {
-            font-size: 20px;
-            color: #241e1a;
-            margin: 0 0 10px;
-            line-height: 1.3;
-        }
-
-        .borrow-book-meta {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px 14px;
-            font-size: 13px;
-            color: #6b625b;
-        }
-
-        .borrow-book-meta p {
-            margin: 0;
-        }
-
-        .borrow-notice-banner {
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 18px;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 500;
-        }
-
-        .borrow-notice-banner.warning {
-            background: #fff8e1;
-            color: #8a5200;
-            border: 1px solid #ffe082;
-        }
-
-        .borrow-form-fields .form-group {
-            margin-bottom: 16px;
-        }
-
-        .borrow-form-fields label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: #2e2620;
-            margin-bottom: 6px;
-        }
-
-        .borrow-form-fields label .required {
-            color: #c62828;
-        }
-
-        .borrow-form-fields input {
-            width: 100%;
-            padding: 11px 14px;
-            border: 1px solid #d5cbbe;
-            border-radius: 6px;
-            font-size: 16px;
-            background: #ffffff;
-            color: #2e2620;
-            outline: none;
-            min-height: 44px;
-            box-sizing: border-box;
-            transition: border-color 0.15s ease;
-        }
-
-        .borrow-form-fields input:focus {
-            border-color: #2e2620;
-            outline: 2px solid rgba(46, 38, 32, 0.2);
-            outline-offset: 1px;
-        }
-
-        .borrow-policy-pill {
-            background: #faf7f3;
-            border: 1px solid #eae4db;
-            border-radius: 6px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #2e2620;
-        }
-
-        .borrow-policy-pill .policy-sub {
-            color: #6b625b;
-            font-size: 12px;
-            margin-top: 2px;
-        }
-
-        .borrow-modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .confirm-borrow-btn {
-            flex: 1;
-            background: #2e2620;
-            color: white;
-            border: 1px solid #241e1a;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            min-height: 44px;
-            transition: background 0.15s ease;
-        }
-
-        .confirm-borrow-btn:hover {
-            background: #443830;
-        }
-
-        .cancel-borrow-btn {
-            background: #f4efe8;
-            color: #2e2620;
-            border: 1px solid #d5cbbe;
-            padding: 12px 18px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            transition: background 0.15s ease;
-        }
-
-        .cancel-borrow-btn:hover {
-            background: #eae4db;
-        }
-
-        /* Success View */
-        .borrow-success-box {
-            text-align: center;
-            padding: 16px 10px;
-        }
-
-        .success-icon-wrap {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: #edf7ed;
-            color: #1e6b24;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 14px;
-            border: 1px solid #c8e6c9;
-        }
-
-        .success-icon-wrap svg {
-            width: 32px;
-            height: 32px;
-        }
-
-        .borrow-success-box h3 {
-            font-size: 20px;
-            color: #241e1a;
-            margin: 0 0 8px;
-        }
-
-        .borrow-success-box p {
-            color: #6b625b;
-            font-size: 14px;
-            margin: 0 0 16px;
-        }
-
-        .success-due-box {
-            background: #faf7f3;
-            border: 1px solid #eae4db;
-            border-radius: 6px;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin: 12px 0;
-        }
-
-        .success-due-box span {
-            font-size: 12px;
-            color: #8b7d72;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .success-due-box strong {
-            font-size: 18px;
-            color: #241e1a;
-        }
-
         @media (max-width: 640px) {
             .unified-search-bar {
                 gap: 6px;
@@ -1278,15 +934,14 @@ if ($search !== '') {
 
             .scanner-view-wrapper {
                 width: 100%;
-                max-width: 250px;
+                max-width: 300px;
                 aspect-ratio: 1 / 1;
-                max-height: 250px;
                 margin: 0 auto 14px;
             }
 
             .scanner-controls {
                 width: 100%;
-                max-width: 250px;
+                max-width: 300px;
                 margin: 0 auto;
                 display: flex;
                 justify-content: center;
@@ -1333,23 +988,6 @@ if ($search !== '') {
                 padding: 10px 12px;
                 margin-bottom: 14px;
                 font-size: 12px;
-            }
-
-            .borrow-form-fields .form-group {
-                margin-bottom: 12px;
-            }
-
-            .borrow-modal-actions {
-                flex-direction: column-reverse;
-                gap: 8px;
-                margin-top: 14px;
-            }
-
-            .confirm-borrow-btn,
-            .cancel-borrow-btn {
-                width: 100%;
-                min-height: 44px;
-                justify-content: center;
             }
 
             .books-page {
@@ -1485,26 +1123,31 @@ if ($search !== '') {
             <span class="brand-tagline">Book Café</span>
         </div>
     </a>
-    <div class="header-text">
-        Café Library Catalog
+    <div class="header-actions" style="display: flex; align-items: center; gap: 12px;">
+        <?php if (isset($_SESSION['customer_id'])): ?>
+            <span style="font-size: 13.5px; color: #554b43;">
+                Hello, <strong><?php echo htmlspecialchars($_SESSION['customer_name']); ?></strong>
+                <?php if (($_SESSION['account_status'] ?? '') === 'Approved'): ?>
+                    <span style="background: #def7ec; color: #03543f; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px;">Verified</span>
+                <?php else: ?>
+                    <span style="background: #fef08a; color: #854d0e; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px;">Pending ID</span>
+                <?php endif; ?>
+            </span>
+            <a href="logout.php" class="header-admin-btn" style="padding: 5px 10px; font-size: 12px; background: #f4efe8; color: #2e2620; border: 1px solid #d5cbbe;">Logout</a>
+        <?php else: ?>
+            <a href="login.php" class="header-admin-btn" style="padding: 6px 12px; font-size: 12.5px;">Log In</a>
+            <a href="register.php" class="header-admin-btn" style="padding: 6px 12px; font-size: 12.5px; background: #f4efe8; color: #2e2620; border: 1px solid #d5cbbe;">Register</a>
+        <?php endif; ?>
     </div>
 </header>
 
 <main class="books-page">
 
     <h1><i data-heroicon="bookmark"></i> Browse Books</h1>
-    <p>Choose a book to borrow, look up its token, or scan its shelf QR code.</p>
-
-    <?php if ($borrow_flash_msg !== ''): ?>
-        <div class="page-banner <?php echo $borrow_flash_type; ?>">
-            <i data-heroicon="<?php echo $borrow_flash_type === 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
-            <span>
-                <?php echo htmlspecialchars($borrow_flash_msg); ?>
-                <?php if ($borrow_flash_due): ?>
-                    Return due: <strong><?php echo htmlspecialchars($borrow_flash_due); ?></strong>.
-                <?php endif; ?>
-            </span>
-        </div>
+    <?php if ($is_customer_logged_in): ?>
+        <p>Choose a book to borrow, look up its token, or scan its shelf QR code.</p>
+    <?php else: ?>
+        <p>Browse our café library catalog. An approved customer account is required to borrow books.</p>
     <?php endif; ?>
 
     <!-- Unified Single-Line Search & Quick Token Lookup -->
@@ -1560,14 +1203,20 @@ if ($search !== '') {
                     <!-- Subtle Vignette for Legibility -->
                     <div class="book-card-vignette"></div>
 
+                    <?php
+                        $avail_copies = (int)($book['available_copies'] ?? 1);
+                        $tot_copies = (int)($book['total_copies'] ?? 1);
+                        $is_book_available = ($avail_copies > 0);
+                    ?>
+
                     <!-- Floating Top Status Badge -->
-                    <?php if ($book['status'] === 'Available'): ?>
+                    <?php if ($is_book_available): ?>
                         <div class="book-card-status-badge available status-indicator">
-                            <i data-heroicon="check-circle"></i> Available
+                            <i data-heroicon="check-circle"></i> <?php echo $avail_copies; ?> of <?php echo $tot_copies; ?> Available
                         </div>
                     <?php else: ?>
                         <div class="book-card-status-badge borrowed status-indicator">
-                            <i data-heroicon="clock"></i> <span class="badge-prefix-full">Currently </span>Borrowed
+                            <i data-heroicon="clock"></i> All <?php echo $tot_copies; ?> Borrowed
                         </div>
                     <?php endif; ?>
 
@@ -1593,24 +1242,20 @@ if ($search !== '') {
                             </div>
                         </div>
 
-                        <!-- Action Button (ONLY element with box background) -->
+                        <!-- Action Button -->
                         <div class="book-card-action">
-                            <?php if ($book['status'] === 'Available'): ?>
-                                <button
-                                    type="button"
-                                    class="book-card-borrow-btn js-borrow-trigger"
-                                    data-book-id="<?php echo (int)$book['id']; ?>"
-                                    data-book-title="<?php echo htmlspecialchars($book['title'], ENT_QUOTES); ?>"
-                                    data-book-author="<?php echo htmlspecialchars($book['author'], ENT_QUOTES); ?>"
-                                    data-book-category="<?php echo htmlspecialchars($book['category'] ?: 'General', ENT_QUOTES); ?>"
-                                    data-book-isbn="<?php echo htmlspecialchars($book['isbn'] ?: 'N/A', ENT_QUOTES); ?>"
-                                    data-book-image="<?php echo htmlspecialchars($coverUrl, ENT_QUOTES); ?>"
-                                    data-book-status="Available"
-                                >
-                                    <i data-heroicon="plus"></i> Borrow Book
-                                </button>
+                            <?php if ($is_book_available): ?>
+                                <?php if ($is_customer_logged_in): ?>
+                                    <a href="borrow.php?book_id=<?php echo (int)$book['id']; ?>" class="book-card-borrow-btn">
+                                        <i data-heroicon="plus"></i> Borrow Book
+                                    </a>
+                                <?php else: ?>
+                                    <a href="login.php?redirect=borrow&book_id=<?php echo (int)$book['id']; ?>" class="book-card-borrow-btn" title="Log in to your account to borrow this book">
+                                        <i data-heroicon="arrow-right-on-rectangle"></i> Log In to Borrow
+                                    </a>
+                                <?php endif; ?>
                             <?php else: ?>
-                                <span class="book-card-unavailable-btn">Unavailable</span>
+                                <span class="book-card-unavailable-btn">All Copies Borrowed</span>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -1685,118 +1330,6 @@ if ($search !== '') {
     </div>
 </div>
 
-<!-- Book Borrowing Confirmation Modal -->
-<div class="modal-overlay" id="borrowModal" aria-hidden="true">
-    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="borrowModalTitle">
-        <div class="modal-header">
-            <h2 id="borrowModalTitle">
-                <i data-heroicon="bookmark"></i> Confirm Borrowing
-            </h2>
-            <button type="button" class="modal-close-btn js-close-borrow" aria-label="Close borrowing dialog">
-                <i data-heroicon="x-mark"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-
-            <!-- Selected Book Summary Card -->
-            <div class="borrow-book-card">
-                <div class="borrow-modal-thumb-box" id="modalCoverWrap">
-                    <img src="" alt="Cover" id="modalCoverImg" class="borrow-modal-thumb-img" style="display: none;">
-                    <div id="modalCoverPlaceholder" class="borrow-modal-thumb-placeholder">
-                        <i data-heroicon="book-open"></i>
-                        <span>No Cover</span>
-                    </div>
-                </div>
-                <div class="borrow-book-details">
-                    <div class="borrow-book-badge available" id="modalStatusBadge">Available</div>
-                    <h3 class="borrow-book-title" id="modalTitle">-</h3>
-                    <div class="borrow-book-meta">
-                        <p><strong>Author:</strong> <span id="modalAuthor">-</span></p>
-                        <p><strong>Category:</strong> <span id="modalCategory">-</span></p>
-                        <p><strong>ISBN:</strong> <span id="modalIsbn">-</span></p>
-                        <p><strong>Book ID:</strong> <span id="modalIdLabel">#-</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Unavailable Notice -->
-            <div id="modalUnavailableNotice" class="borrow-notice-banner warning" style="display: none;">
-                <i data-heroicon="exclamation-triangle"></i>
-                <span>This book is currently borrowed by another customer and cannot be checked out.</span>
-            </div>
-
-            <!-- Borrow Form -->
-            <form id="borrowForm" method="POST" action="books.php" class="borrow-form-fields">
-                <input type="hidden" name="action" value="borrow">
-                <input type="hidden" name="is_ajax" value="1">
-                <input type="hidden" name="book_id" id="modalBookId" value="">
-
-                <div id="borrowFormInputs">
-                    <div class="form-group">
-                        <label for="customerName">Your Full Name <span class="required">*</span></label>
-                        <input
-                            type="text"
-                            id="customerName"
-                            name="name"
-                            required
-                            placeholder="Enter your complete name"
-                            autocomplete="name"
-                        >
-                    </div>
-
-                    <div class="form-group">
-                        <label for="customerContact">Contact Number / Email <span class="required">*</span></label>
-                        <input
-                            type="text"
-                            id="customerContact"
-                            name="contact"
-                            required
-                            placeholder="e.g. 0917-123-4567 or email"
-                            autocomplete="tel"
-                        >
-                    </div>
-
-                    <div class="borrow-policy-pill">
-                        <i data-heroicon="clock"></i>
-                        <div>
-                            <strong>Standard Loan: 7 Days</strong>
-                            <div class="policy-sub">Return due by <span id="modalDueDateText"><?php echo date("M d, Y", strtotime("+7 days")); ?></span> at the counter.</div>
-                        </div>
-                    </div>
-
-                    <div id="modalFormError" class="scanner-feedback-msg error" style="display: none;"></div>
-
-                    <div class="borrow-modal-actions">
-                        <button type="submit" id="submitBorrowBtn" class="confirm-borrow-btn">
-                            <i data-heroicon="check"></i> Confirm Borrowing
-                        </button>
-                        <button type="button" class="cancel-borrow-btn js-close-borrow">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </form>
-
-            <!-- Success Confirmation Screen -->
-            <div id="modalSuccessBox" class="borrow-success-box" style="display: none;">
-                <div class="success-icon-wrap">
-                    <i data-heroicon="check-circle"></i>
-                </div>
-                <h3>Borrowing Confirmed!</h3>
-                <p id="modalSuccessMessage">You have successfully borrowed this book.</p>
-                <div class="success-due-box">
-                    <span>Return Due Date</span>
-                    <strong id="modalSuccessDueDate"><?php echo date("M d, Y", strtotime("+7 days")); ?></strong>
-                </div>
-                <button type="button" class="confirm-borrow-btn js-close-borrow" style="width: 100%; margin-top: 14px;">
-                    Done
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
 <script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script src="../html5-qrcode.min.js"></script>
 <script>
@@ -1814,9 +1347,10 @@ if ($search !== '') {
     (function () {
         'use strict';
 
+        var isCustomerLoggedIn = <?php echo $is_customer_logged_in ? 'true' : 'false'; ?>;
+
         // Elements
         var scannerModal = document.getElementById('scannerModal');
-        var borrowModal = document.getElementById('borrowModal');
         var openScannerBtn = document.getElementById('openScannerBtn');
         var startCameraBtn = document.getElementById('startCameraBtn');
         var stopCameraBtn = document.getElementById('stopCameraBtn');
@@ -1827,23 +1361,6 @@ if ($search !== '') {
         var unifiedSearchForm = document.getElementById('unifiedSearchForm');
         var unifiedSearchInput = document.getElementById('unifiedSearchInput');
         var unifiedSubmitBtn = document.getElementById('unifiedSubmitBtn');
-
-        var modalTitle = document.getElementById('modalTitle');
-        var modalAuthor = document.getElementById('modalAuthor');
-        var modalCategory = document.getElementById('modalCategory');
-        var modalIsbn = document.getElementById('modalIsbn');
-        var modalIdLabel = document.getElementById('modalIdLabel');
-        var modalStatusBadge = document.getElementById('modalStatusBadge');
-        var modalUnavailableNotice = document.getElementById('modalUnavailableNotice');
-        var borrowForm = document.getElementById('borrowForm');
-        var borrowFormInputs = document.getElementById('borrowFormInputs');
-        var modalBookId = document.getElementById('modalBookId');
-        var customerName = document.getElementById('customerName');
-        var customerContact = document.getElementById('customerContact');
-        var modalFormError = document.getElementById('modalFormError');
-        var submitBorrowBtn = document.getElementById('submitBorrowBtn');
-        var modalSuccessBox = document.getElementById('modalSuccessBox');
-        var modalSuccessDueDate = document.getElementById('modalSuccessDueDate');
 
         var qrScanner = null;
         var isCameraRunning = false;
@@ -1900,11 +1417,11 @@ if ($search !== '') {
                     { facingMode: 'environment' },
                     {
                         fps: 10,
+                        aspectRatio: 1.0,
                         qrbox: function (viewfinderWidth, viewfinderHeight) {
                             var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                            var boxSize = Math.max(140, Math.floor(minEdge * 0.72));
-                            var finalSize = Math.min(boxSize, Math.max(120, minEdge - 20));
-                            return { width: finalSize, height: finalSize };
+                            var boxSize = Math.max(160, Math.min(minEdge - 16, Math.floor(minEdge * 0.90)));
+                            return { width: boxSize, height: boxSize };
                         }
                     },
                     function onScanSuccess(decodedText) {
@@ -1971,7 +1488,13 @@ if ($search !== '') {
                 if (data.ok && data.book) {
                     stopScanning();
                     hideModal(scannerModal);
-                    openBorrowModal(data.book);
+                    if (!data.book.is_available) {
+                        alert('All copies of "' + data.book.title + '" are currently borrowed.');
+                        return;
+                    }
+                    window.location.href = isCustomerLoggedIn
+                        ? ('borrow.php?book_id=' + data.book.id)
+                        : ('login.php?redirect=borrow&book_id=' + data.book.id);
                 } else {
                     var errorMsg = data.error || 'Book not found for "' + trimmed + '".';
                     if (scannerModal.classList.contains('is-active')) {
@@ -1999,73 +1522,6 @@ if ($search !== '') {
             lookupBook(text, null);
         }
 
-        // Open Borrow Modal
-        function openBorrowModal(book) {
-            modalBookId.value = book.id;
-            modalTitle.textContent = book.title || 'Untitled';
-            modalAuthor.textContent = book.author || 'Unknown';
-            modalCategory.textContent = book.category || 'General';
-            modalIsbn.textContent = book.isbn || 'N/A';
-            modalIdLabel.textContent = '#' + book.id;
-
-            var modalCoverImg = document.getElementById('modalCoverImg');
-            var modalCoverPlaceholder = document.getElementById('modalCoverPlaceholder');
-            if (modalCoverImg && modalCoverPlaceholder) {
-                if (book.image) {
-                    modalCoverImg.src = book.image;
-                    modalCoverImg.style.display = 'block';
-                    modalCoverPlaceholder.style.display = 'none';
-                } else {
-                    modalCoverImg.src = '';
-                    modalCoverImg.style.display = 'none';
-                    modalCoverPlaceholder.style.display = 'flex';
-                }
-            }
-
-            modalFormError.style.display = 'none';
-            modalFormError.textContent = '';
-            modalSuccessBox.style.display = 'none';
-
-            if (book.is_available) {
-                modalStatusBadge.textContent = 'Available';
-                modalStatusBadge.className = 'borrow-book-badge available';
-                modalUnavailableNotice.style.display = 'none';
-                borrowFormInputs.style.display = 'block';
-                submitBorrowBtn.disabled = false;
-            } else {
-                modalStatusBadge.textContent = 'Currently Borrowed';
-                modalStatusBadge.className = 'borrow-book-badge borrowed';
-                modalUnavailableNotice.style.display = 'flex';
-                borrowFormInputs.style.display = 'none';
-            }
-
-            showModal(borrowModal);
-            heroicons.createIcons({ root: borrowModal });
-
-            if (book.is_available) {
-                setTimeout(function () {
-                    customerName.focus();
-                }, 100);
-            }
-        }
-
-        // Event Listeners: Triggers on Catalog Cards
-        document.querySelectorAll('.js-borrow-trigger').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var book = {
-                    id: this.dataset.bookId,
-                    title: this.dataset.bookTitle,
-                    author: this.dataset.bookAuthor,
-                    category: this.dataset.bookCategory,
-                    isbn: this.dataset.bookIsbn,
-                    image: this.dataset.bookImage || '',
-                    status: this.dataset.bookStatus,
-                    is_available: (this.dataset.bookStatus === 'Available')
-                };
-                openBorrowModal(book);
-            });
-        });
-
         // Trigger Scanner Modal
         openScannerBtn.addEventListener('click', function () {
             hideScannerFeedback();
@@ -2085,23 +1541,11 @@ if ($search !== '') {
             });
         });
 
-        document.querySelectorAll('.js-close-borrow').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                hideModal(borrowModal);
-            });
-        });
-
         // Click outside modal dialog to dismiss
         scannerModal.addEventListener('click', function (e) {
             if (e.target === scannerModal) {
                 stopScanning();
                 hideModal(scannerModal);
-            }
-        });
-
-        borrowModal.addEventListener('click', function (e) {
-            if (e.target === borrowModal) {
-                hideModal(borrowModal);
             }
         });
 
@@ -2111,9 +1555,6 @@ if ($search !== '') {
                 if (scannerModal.classList.contains('is-active')) {
                     stopScanning();
                     hideModal(scannerModal);
-                }
-                if (borrowModal.classList.contains('is-active')) {
-                    hideModal(borrowModal);
                 }
             }
         });
@@ -2139,74 +1580,6 @@ if ($search !== '') {
                 }
             });
         }
-
-        // Borrow Form Submission via AJAX
-        borrowForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            modalFormError.style.display = 'none';
-
-            var nameVal = customerName.value.trim();
-            var contactVal = customerContact.value.trim();
-            if (!nameVal) {
-                modalFormError.textContent = 'Please enter your full name.';
-                modalFormError.style.display = 'block';
-                customerName.focus();
-                return;
-            }
-
-            submitBorrowBtn.disabled = true;
-            submitBorrowBtn.innerHTML = '<i data-heroicon="arrow-path"></i> Processing...';
-            heroicons.createIcons({ root: submitBorrowBtn });
-
-            var formData = new FormData(borrowForm);
-
-            try {
-                var resp = await fetch('books.php', {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: formData
-                });
-                var result = await resp.json();
-
-                if (result.ok) {
-                    // Update catalog card if present
-                    var card = document.getElementById('book-card-' + modalBookId.value);
-                    if (card) {
-                        var statusIndicator = card.querySelector('.status-indicator');
-                        if (statusIndicator) {
-                            statusIndicator.className = 'book-card-status-badge borrowed status-indicator';
-                            statusIndicator.innerHTML = '<i data-heroicon="clock"></i> <span class="badge-prefix-full">Currently </span>Borrowed';
-                        }
-                        var borrowBtn = card.querySelector('.js-borrow-trigger');
-                        if (borrowBtn) {
-                            borrowBtn.outerHTML = '<span class="book-card-unavailable-btn">Unavailable</span>';
-                        }
-                        heroicons.createIcons({ root: card });
-                    }
-
-                    // Show success screen in modal
-                    borrowFormInputs.style.display = 'none';
-                    if (result.due_date) {
-                        modalSuccessDueDate.textContent = result.due_date;
-                    }
-                    modalSuccessBox.style.display = 'block';
-                    heroicons.createIcons({ root: modalSuccessBox });
-                } else {
-                    modalFormError.textContent = result.message || 'Could not complete borrowing.';
-                    modalFormError.style.display = 'block';
-                    submitBorrowBtn.disabled = false;
-                    submitBorrowBtn.innerHTML = '<i data-heroicon="check"></i> Confirm Borrowing';
-                    heroicons.createIcons({ root: submitBorrowBtn });
-                }
-            } catch (err) {
-                modalFormError.textContent = 'Network error while submitting. Please try again.';
-                modalFormError.style.display = 'block';
-                submitBorrowBtn.disabled = false;
-                submitBorrowBtn.innerHTML = '<i data-heroicon="check"></i> Confirm Borrowing';
-                heroicons.createIcons({ root: submitBorrowBtn });
-            }
-        });
-
     })();
 </script>
 </body>

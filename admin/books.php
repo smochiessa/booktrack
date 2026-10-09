@@ -5,6 +5,7 @@ session_start();
 
 require_once "../database.php";
 $logo_url = pagelounge_logo_url();
+$pending_count = pagelounge_pending_customers_count($conn);
 
 require_once "../vendor/autoload.php";
 
@@ -102,6 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['add_book']) || isset(
     $author = trim($_POST['author'] ?? '');
     $category = trim($_POST['category'] ?? '');
     $isbn = trim($_POST['isbn'] ?? '');
+    $total_copies = max(1, intval($_POST['total_copies'] ?? 1));
 
     if ($title == "" || $author == "") {
 
@@ -114,8 +116,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['add_book']) || isset(
         sync_books_autoincrement($conn);
 
         $sql = "INSERT INTO books
-                (title, author, category, isbn, status)
-                VALUES (?, ?, ?, ?, 'Available')";
+                (title, author, category, isbn, total_copies, available_copies, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'Available')";
 
         $stmt = $conn->prepare($sql);
 
@@ -124,11 +126,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && (isset($_POST['add_book']) || isset(
             $message_type = "error";
         } else {
             $stmt->bind_param(
-                "ssss",
+                "ssssii",
                 $title,
                 $author,
                 $category,
-                $isbn
+                $isbn,
+                $total_copies,
+                $total_copies
             );
 
             if ($stmt->execute()) {
@@ -206,6 +210,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['edit_book'])) {
     $author = trim($_POST['author'] ?? '');
     $category = trim($_POST['category'] ?? '');
     $isbn = trim($_POST['isbn'] ?? '');
+    $total_copies = max(1, intval($_POST['total_copies'] ?? 1));
     $remove_image = !empty($_POST['remove_image']) && $_POST['remove_image'] === '1';
 
     if ($book_id <= 0) {
@@ -216,7 +221,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['edit_book'])) {
         $message_type = "error";
     } else {
         // Fetch current book info
-        $cur_stmt = $conn->prepare("SELECT id, image FROM books WHERE id = ?");
+        $cur_stmt = $conn->prepare("SELECT id, image, total_copies, available_copies FROM books WHERE id = ?");
         $cur_stmt->bind_param("i", $book_id);
         $cur_stmt->execute();
         $cur_book = $cur_stmt->get_result()->fetch_assoc();
@@ -239,9 +244,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['edit_book'])) {
                 $image_path = handle_book_cover_upload($book_id, $image_path);
             }
 
-            $update_sql = "UPDATE books SET title = ?, author = ?, category = ?, isbn = ?, image = ? WHERE id = ?";
+            // Calculate currently borrowed copies
+            $cur_total = max(1, intval($cur_book['total_copies'] ?? 1));
+            $cur_avail = max(0, intval($cur_book['available_copies'] ?? 1));
+            $borrowed_count = max(0, $cur_total - $cur_avail);
+
+            $new_available = max(0, $total_copies - $borrowed_count);
+            $new_status = ($new_available > 0) ? 'Available' : 'Borrowed';
+
+            $update_sql = "UPDATE books SET title = ?, author = ?, category = ?, isbn = ?, total_copies = ?, available_copies = ?, status = ?, image = ? WHERE id = ?";
             $update_stmt = $conn->prepare($update_sql);
-            $update_stmt->bind_param("sssssi", $title, $author, $category, $isbn, $image_path, $book_id);
+            $update_stmt->bind_param("ssssiissi", $title, $author, $category, $isbn, $total_copies, $new_available, $new_status, $image_path, $book_id);
 
             if ($update_stmt->execute()) {
                 $message = "Book updated successfully!";
@@ -1377,11 +1390,23 @@ if (!empty($params)) {
                     <a href="dashboard.php">
                         <i data-heroicon="squares-2x2"></i> Dashboard
                     </a>
+                    <a href="customers.php">
+                        <i data-heroicon="user-group"></i> Customers
+                        <?php if ($pending_count > 0): ?>
+                            <span style="background: #ef4444; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;"><?php echo $pending_count; ?></span>
+                        <?php endif; ?>
+                    </a>
                     <a href="books.php" class="active">
                         <i data-heroicon="rectangle-stack"></i> Book Inventory
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                    </a>
+                    <a href="scan_return.php">
+                        <i data-heroicon="qr-code"></i> Scan Return
+                    </a>
+                    <a href="print_qrs.php">
+                        <i data-heroicon="printer"></i> Print QRs
                     </a>
                     <a href="reports.php">
                         <i data-heroicon="chart-bar"></i> Reports
@@ -1491,6 +1516,18 @@ if (!empty($params)) {
                             >
                         </div>
 
+                        <div class="form-group">
+                            <label for="book-total-copies">Total Copies *</label>
+                            <input
+                                type="number"
+                                id="book-total-copies"
+                                name="total_copies"
+                                min="1"
+                                value="<?php echo ($message_type === 'error' && isset($_POST['total_copies'])) ? max(1, intval($_POST['total_copies'])) : '1'; ?>"
+                                required
+                            >
+                        </div>
+
                         <div class="form-group full-width">
                             <label>Book Cover Image (Optional)</label>
                             <div class="cover-upload-area" id="addCoverDropzone">
@@ -1591,6 +1628,18 @@ if (!empty($params)) {
                                 id="edit-book-isbn"
                                 name="isbn"
                                 placeholder="Enter ISBN"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-book-total-copies">Total Copies *</label>
+                            <input
+                                type="number"
+                                id="edit-book-total-copies"
+                                name="total_copies"
+                                min="1"
+                                value="1"
+                                required
                             >
                         </div>
 
@@ -1717,6 +1766,7 @@ if (!empty($params)) {
                         <th class="col-author">Author</th>
                         <th class="col-category">Category</th>
                         <th class="col-isbn">ISBN</th>
+                        <th class="col-copies">Copies</th>
                         <th class="col-qr">QR Code</th>
                         <th class="col-status">Status</th>
                         <th class="col-action">Action</th>
@@ -1773,6 +1823,15 @@ if (!empty($params)) {
                                     <?php endif; ?>
                                 </td>
 
+                                <td class="col-copies">
+                                    <div style="font-size: 13px; line-height: 1.3;">
+                                        <strong><?php echo (int)($book['available_copies'] ?? 1); ?></strong> / <?php echo (int)($book['total_copies'] ?? 1); ?>
+                                        <div style="font-size: 11px; color: #7a6e65;">
+                                            (<?php echo max(0, (int)($book['total_copies'] ?? 1) - (int)($book['available_copies'] ?? 1)); ?> borrowed)
+                                        </div>
+                                    </div>
+                                </td>
+
                                 <td class="col-qr">
                                     <?php if (!empty($book['qr_code'])): ?>
                                         <div class="qr-preview-box">
@@ -1823,6 +1882,8 @@ if (!empty($params)) {
                                                 "author" => $book["author"],
                                                 "category" => $book["category"] ?? "",
                                                 "isbn" => $book["isbn"] ?? "",
+                                                "total_copies" => (int)($book["total_copies"] ?? 1),
+                                                "available_copies" => (int)($book["available_copies"] ?? 1),
                                                 "image" => $book["image"] ?? "",
                                                 "imageUrl" => (!empty($book["image"]) && file_exists(__DIR__ . "/../" . $book["image"])) ? "../" . htmlspecialchars($book["image"]) : ""
                                             ]), ENT_QUOTES, "UTF-8"); ?>)'
@@ -1991,6 +2052,7 @@ if (!empty($params)) {
         document.getElementById('edit-book-author').value = book.author || '';
         document.getElementById('edit-book-category').value = book.category || '';
         document.getElementById('edit-book-isbn').value = book.isbn || '';
+        document.getElementById('edit-book-total-copies').value = book.total_copies || 1;
         document.getElementById('editRemoveImage').value = '0';
 
         var fileInput = document.getElementById('edit-book-cover');

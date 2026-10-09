@@ -23,13 +23,16 @@ CREATE TABLE IF NOT EXISTS `books` (
     `image` VARCHAR(255) DEFAULT NULL,
     `qr_code` VARCHAR(255) DEFAULT NULL,
     `status` ENUM('Available', 'Borrowed') NOT NULL DEFAULT 'Available',
+    `total_copies` INT NOT NULL DEFAULT 1,
+    `available_copies` INT NOT NULL DEFAULT 1,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_books_status` (`status`),
     KEY `idx_books_category` (`category`),
     KEY `idx_books_title` (`title`),
     KEY `idx_books_author` (`author`),
-    KEY `idx_books_isbn` (`isbn`)
+    KEY `idx_books_isbn` (`isbn`),
+    KEY `idx_books_available_copies` (`available_copies`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=1;
 
 -- ------------------------------------------------------------
@@ -38,11 +41,17 @@ CREATE TABLE IF NOT EXISTS `books` (
 CREATE TABLE IF NOT EXISTS `customers` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
+    `email` VARCHAR(191) DEFAULT NULL,
+    `password` VARCHAR(255) DEFAULT NULL,
     `contact` VARCHAR(100) DEFAULT NULL,
+    `id_image` VARCHAR(255) DEFAULT NULL,
+    `account_status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_customers_email` (`email`),
     KEY `idx_customers_name` (`name`),
-    KEY `idx_customers_contact` (`contact`)
+    KEY `idx_customers_contact` (`contact`),
+    KEY `idx_customers_status` (`account_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=1;
 
 -- ------------------------------------------------------------
@@ -84,3 +93,11 @@ CREATE TABLE IF NOT EXISTS `admins` (
     UNIQUE KEY `idx_admins_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci AUTO_INCREMENT=1;
 
+-- ------------------------------------------------------------
+-- 5. Seed Data: Default Librarian Account
+-- Username: librarian | Default Password: booktrack123
+-- (Migrated to secure password_hash on first login / database.php bootstrap)
+-- ------------------------------------------------------------
+INSERT INTO `admins` (`username`, `password`)
+VALUES ('librarian', 'booktrack123')
+ON DUPLICATE KEY UPDATE `id` = `id`;

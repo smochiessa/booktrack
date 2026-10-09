@@ -10,6 +10,48 @@ if (!isset($_SESSION['librarian'])) {
 require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
+$pending_count = pagelounge_pending_customers_count($conn);
+
+$flash_message = "";
+$flash_type = "";
+
+// Handle Return Book POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'mark_returned') {
+    $borrowing_id = filter_var($_POST['borrowing_id'] ?? null, FILTER_VALIDATE_INT);
+    if ($borrowing_id) {
+        $conn->begin_transaction();
+        try {
+            $b_stmt = $conn->prepare("SELECT book_id, status FROM borrowings WHERE id = ? FOR UPDATE");
+            $b_stmt->bind_param("i", $borrowing_id);
+            $b_stmt->execute();
+            $b_row = $b_stmt->get_result()->fetch_assoc();
+
+            if ($b_row && $b_row['status'] === 'Borrowed') {
+                $b_id = (int)$b_row['book_id'];
+
+                $upd_b = $conn->prepare("UPDATE borrowings SET return_date = NOW(), status = 'Returned' WHERE id = ?");
+                $upd_b->bind_param("i", $borrowing_id);
+                $upd_b->execute();
+
+                $upd_bk = $conn->prepare("UPDATE books SET available_copies = LEAST(total_copies, available_copies + 1), status = 'Available' WHERE id = ?");
+                $upd_bk->bind_param("i", $b_id);
+                $upd_bk->execute();
+
+                $conn->commit();
+                $flash_message = "Book marked as returned successfully.";
+                $flash_type = "success";
+            } else {
+                $conn->rollback();
+                $flash_message = "This borrowing record is already returned or not found.";
+                $flash_type = "error";
+            }
+        } catch (\Throwable $e) {
+            $conn->rollback();
+            $flash_message = "Failed to process return. Please try again.";
+            $flash_type = "error";
+        }
+    }
+}
 
 $search = trim($_GET['search'] ?? '');
 $status_filter = trim($_GET['status'] ?? '');
@@ -187,6 +229,48 @@ if (!empty($params)) {
             color: #c62828;
             border: 1px solid #ffcdd2;
         }
+
+        .action-return-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background: #2e2620;
+            color: #ffffff;
+            border: 1px solid #241e1a;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s ease;
+        }
+
+        .action-return-btn:hover {
+            background: #443830;
+        }
+
+        .alert-box {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-box.success {
+            background: #edf7ed;
+            color: #1e6b24;
+            border: 1px solid #c8e6c9;
+        }
+
+        .alert-box.error {
+            background: #fdeeed;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
     </style>
 </head>
 
@@ -227,11 +311,23 @@ if (!empty($params)) {
                     <a href="dashboard.php">
                         <i data-heroicon="squares-2x2"></i> Dashboard
                     </a>
+                    <a href="customers.php">
+                        <i data-heroicon="user-group"></i> Customers
+                        <?php if ($pending_count > 0): ?>
+                            <span style="background: #ef4444; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;"><?php echo $pending_count; ?></span>
+                        <?php endif; ?>
+                    </a>
                     <a href="books.php">
                         <i data-heroicon="rectangle-stack"></i> Book Inventory
                     </a>
                     <a href="borrowings.php" class="active">
                         <i data-heroicon="clock"></i> Borrowing History
+                    </a>
+                    <a href="scan_return.php">
+                        <i data-heroicon="qr-code"></i> Scan Return
+                    </a>
+                    <a href="print_qrs.php">
+                        <i data-heroicon="printer"></i> Print QRs
                     </a>
                     <a href="reports.php">
                         <i data-heroicon="chart-bar"></i> Reports
@@ -259,6 +355,13 @@ if (!empty($params)) {
 
                 <h1><i data-heroicon="clock"></i> Borrowing History</h1>
                 <p>View all book borrowing and return transactions.</p>
+
+                <?php if ($flash_message !== ""): ?>
+                    <div class="alert-box <?php echo $flash_type; ?>">
+                        <i data-heroicon="<?php echo $flash_type === 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
+                        <?php echo htmlspecialchars($flash_message); ?>
+                    </div>
+                <?php endif; ?>
 
                 <form method="GET" class="borrowings-filter-bar">
                     <input
@@ -301,6 +404,7 @@ if (!empty($params)) {
                                 <th>Due Date</th>
                                 <th>Return Date</th>
                                 <th>Status</th>
+                                <th style="text-align: center;">Action</th>
                             </tr>
                         </thead>
 
@@ -332,7 +436,7 @@ if (!empty($params)) {
                                             <?php echo date("M d, Y", strtotime($row['due_date'])); ?>
                                         </td>
                                         <td>
-                                            <?php echo $row['return_date'] ? date("M d, Y h:i A", strtotime($row['return_date'])) : '<span style="color: #8b7d72;">Not returned</span>'; ?>
+                                            <?php echo $row['return_date'] ? date("M d, Y h:i A", strtotime($row['return_date'])) : '<span style="color: #635b54;">Not returned</span>'; ?>
                                         </td>
                                         <td>
                                             <?php if ($row['status'] === 'Returned'): ?>
@@ -349,6 +453,19 @@ if (!empty($params)) {
                                                 </span>
                                             <?php endif; ?>
                                         </td>
+                                        <td style="text-align: center;">
+                                            <?php if ($row['status'] === 'Borrowed'): ?>
+                                                <form method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Confirm returning this book?');">
+                                                    <input type="hidden" name="action" value="mark_returned">
+                                                    <input type="hidden" name="borrowing_id" value="<?php echo (int)$row['id']; ?>">
+                                                    <button type="submit" class="action-return-btn">
+                                                        <i data-heroicon="arrow-uturn-left"></i> Return
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span style="color: #635b54; font-size: 13px;">-</span>
+                                            <?php endif; ?>
+                                        </td>
                                     </tr>
 
                                 <?php endwhile; ?>
@@ -356,7 +473,7 @@ if (!empty($params)) {
                             <?php else: ?>
 
                                 <tr>
-                                    <td colspan="8" style="text-align:center; padding: 30px;">
+                                    <td colspan="9" style="text-align:center; padding: 30px;">
                                         No borrowing records found.
                                     </td>
                                 </tr>

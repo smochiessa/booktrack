@@ -121,7 +121,7 @@ booktrack/
 
 ## Database Schema Overview
 
-- **`books`**: Book catalogue (`title`, `author`, `category`, `isbn`, `image`, `qr_code`, `status`).
-- **`customers`**: Registered borrowers (`name`, `contact`, `created_at`).
+- **`books`**: Book catalogue (`title`, `author`, `category`, `isbn`, `image`, `qr_code`, `status`, `total_copies`, `available_copies`).
+- **`customers`**: Registered borrowers & auth (`name`, `email`, `password`, `contact`, `id_image`, `account_status`, `created_at`).
 - **`borrowings`**: Loan transactions (`customer_id`, `book_id`, `borrow_date`, `due_date`, `return_date`, `status`).
 - **`admins`**: Librarian accounts (`username`, `password` hash, `updated_at`).

@@ -6,6 +6,7 @@ session_start();
 require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
+$pending_count = pagelounge_pending_customers_count($conn);
 
 // Make sure librarian is logged in
 if (!isset($_SESSION['librarian'])) {
@@ -47,6 +48,29 @@ $overdue_query = $conn->query(
 );
 
 $overdue_books = $overdue_query->fetch_assoc()['total'];
+
+
+// MOST BORROWED BOOKS (FOR GRAPH)
+$most_borrowed_query = $conn->query(
+    "SELECT
+        books.title,
+        COUNT(borrowings.id) AS borrow_count
+     FROM borrowings
+     JOIN books ON borrowings.book_id = books.id
+     GROUP BY books.id, books.title
+     ORDER BY borrow_count DESC
+     LIMIT 6"
+);
+
+$chart_labels = [];
+$chart_counts = [];
+
+if ($most_borrowed_query) {
+    while ($mb = $most_borrowed_query->fetch_assoc()) {
+        $chart_labels[] = $mb['title'];
+        $chart_counts[] = (int)$mb['borrow_count'];
+    }
+}
 
 
 // RECENT TRANSACTIONS
@@ -236,6 +260,70 @@ $transactions_query = $conn->query(
             border: 1px solid #ffcdd2;
         }
 
+        /* CHART SECTION */
+        .chart-section {
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: #ffffff;
+            padding: 24px 28px;
+            border-radius: 6px;
+            border: 1px solid #e5dfd5;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chart-header h2 {
+            font-size: 20px;
+            color: #241e1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .chart-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background: #f4efe8;
+            border: 1px solid #d5cbbe;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b625b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-canvas-wrapper {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+
+        .chart-empty-state {
+            text-align: center;
+            padding: 40px 16px;
+            color: #635b54;
+            font-size: 14px;
+        }
+
+        .chart-empty-state i {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
         @media (max-width: 640px) {
             .dashboard-header {
                 margin-bottom: 16px;
@@ -340,11 +428,23 @@ $transactions_query = $conn->query(
                     <a href="dashboard.php" class="active">
                         <i data-heroicon="squares-2x2"></i> Dashboard
                     </a>
+                    <a href="customers.php">
+                        <i data-heroicon="user-group"></i> Customers
+                        <?php if ($pending_count > 0): ?>
+                            <span style="background: #ef4444; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;"><?php echo $pending_count; ?></span>
+                        <?php endif; ?>
+                    </a>
                     <a href="books.php">
                         <i data-heroicon="rectangle-stack"></i> Book Inventory
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                    </a>
+                    <a href="scan_return.php">
+                        <i data-heroicon="qr-code"></i> Scan Return
+                    </a>
+                    <a href="print_qrs.php">
+                        <i data-heroicon="printer"></i> Print QRs
                     </a>
                     <a href="reports.php">
                         <i data-heroicon="chart-bar"></i> Reports
@@ -439,6 +539,37 @@ $transactions_query = $conn->query(
 
         </div>
 
+
+    </div>
+
+
+    <!-- MOST BORROWED BOOKS GRAPH -->
+
+    <div class="chart-section">
+
+        <div class="chart-card">
+
+            <div class="chart-header">
+                <h2>
+                    <i data-heroicon="chart-bar"></i> Most Borrowed Books
+                </h2>
+                <span class="chart-badge">
+                    Top Circulation
+                </span>
+            </div>
+
+            <?php if (!empty($chart_labels)): ?>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="mostBorrowedChart"></canvas>
+                </div>
+            <?php else: ?>
+                <div class="chart-empty-state">
+                    <i data-heroicon="inbox"></i>
+                    <p>No borrowing transactions recorded yet to generate analytics graph.</p>
+                </div>
+            <?php endif; ?>
+
+        </div>
 
     </div>
 
@@ -635,6 +766,7 @@ $transactions_query = $conn->query(
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script>
     heroicons.createIcons();
@@ -649,6 +781,84 @@ $transactions_query = $conn->query(
             }
         });
     })();
+
+    <?php if (!empty($chart_labels)): ?>
+    (function () {
+        var ctx = document.getElementById('mostBorrowedChart');
+        if (!ctx) return;
+
+        var labels = <?php echo json_encode($chart_labels); ?>;
+        var data = <?php echo json_encode($chart_counts); ?>;
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Times Borrowed',
+                    data: data,
+                    backgroundColor: 'rgba(140, 115, 85, 0.85)',
+                    hoverBackgroundColor: '#2e2620',
+                    borderColor: '#2e2620',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    maxBarThickness: 32
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#241e1a',
+                        titleColor: '#ffffff',
+                        bodyColor: '#f4efe8',
+                        padding: 10,
+                        cornerRadius: 4,
+                        callbacks: {
+                            label: function(context) {
+                                return ' Borrowed: ' + context.parsed.x + (context.parsed.x === 1 ? ' time' : ' times');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            color: '#6b625b',
+                            font: {
+                                family: "'Plus Jakarta Sans', sans-serif",
+                                size: 12
+                            }
+                        },
+                        grid: {
+                            color: '#eae4db'
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#241e1a',
+                            font: {
+                                family: "'Plus Jakarta Sans', sans-serif",
+                                size: 13,
+                                weight: '600'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    })();
+    <?php endif; ?>
 </script>
 </body>
 

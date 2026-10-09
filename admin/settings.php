@@ -5,6 +5,7 @@ session_start();
 require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
+$pending_count = pagelounge_pending_customers_count($conn);
 
 if (!isset($_SESSION['librarian'])) {
     header("Location: login.php");
@@ -322,11 +323,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
                     <a href="dashboard.php">
                         <i data-heroicon="squares-2x2"></i> Dashboard
                     </a>
+                    <a href="customers.php">
+                        <i data-heroicon="user-group"></i> Customers
+                        <?php if ($pending_count > 0): ?>
+                            <span style="background: #ef4444; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;"><?php echo $pending_count; ?></span>
+                        <?php endif; ?>
+                    </a>
                     <a href="books.php">
                         <i data-heroicon="rectangle-stack"></i> Book Inventory
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                    </a>
+                    <a href="scan_return.php">
+                        <i data-heroicon="qr-code"></i> Scan Return
+                    </a>
+                    <a href="print_qrs.php">
+                        <i data-heroicon="printer"></i> Print QRs
                     </a>
                     <a href="reports.php">
                         <i data-heroicon="chart-bar"></i> Reports
