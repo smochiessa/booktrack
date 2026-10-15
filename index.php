@@ -72,10 +72,6 @@ $logo_url = pagelounge_logo_url();
                     <i data-heroicon="bookmark"></i> Browse Books
                 </a>
 
-                <a href="customer/return.php" class="button button-secondary">
-                    <i data-heroicon="arrow-uturn-left"></i> Return a Book
-                </a>
-
             </div>
 
         </section>
