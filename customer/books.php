@@ -7,6 +7,67 @@ $logo_url = pagelounge_logo_url();
 $search = trim($_GET['search'] ?? '');
 $is_customer_logged_in = isset($_SESSION['customer_id']);
 
+// Dynamically refresh customer details to reflect librarian approvals/updates in real-time
+if ($is_customer_logged_in) {
+    $cust_id = (int)$_SESSION['customer_id'];
+    $cust_stmt = $conn->prepare("SELECT name, email, contact, account_status FROM customers WHERE id = ?");
+    if ($cust_stmt) {
+        $cust_stmt->bind_param("i", $cust_id);
+        $cust_stmt->execute();
+        $fresh_cust = $cust_stmt->get_result()->fetch_assoc();
+        if ($fresh_cust) {
+            $_SESSION['customer_name'] = $fresh_cust['name'];
+            $_SESSION['customer_email'] = $fresh_cust['email'];
+            $_SESSION['account_status'] = $fresh_cust['account_status'];
+        }
+    }
+}
+
+// Handle Customer Return Request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'request_return') {
+    if (!$is_customer_logged_in) {
+        header("Location: login.php");
+        exit;
+    }
+    $borrowing_id = filter_var($_POST['borrowing_id'] ?? null, FILTER_VALIDATE_INT);
+    $cust_id = (int)$_SESSION['customer_id'];
+    if ($borrowing_id) {
+        $stmt = $conn->prepare("UPDATE borrowings SET status = 'Pending Return' WHERE id = ? AND customer_id = ? AND status = 'Borrowed'");
+        $stmt->bind_param("ii", $borrowing_id, $cust_id);
+        $stmt->execute();
+        if ($stmt->affected_rows > 0) {
+            $_SESSION['return_notice'] = "Return requested! Please bring the book to the librarian desk for verification.";
+        }
+    }
+    header("Location: books.php#myLoans");
+    exit;
+}
+
+$return_notice = $_SESSION['return_notice'] ?? '';
+unset($_SESSION['return_notice']);
+
+// Fetch active borrowings for logged-in customer
+$customer_active_borrowings = [];
+if ($is_customer_logged_in) {
+    $cust_id = (int)$_SESSION['customer_id'];
+    $b_stmt = $conn->prepare("
+        SELECT b.id AS borrowing_id, b.borrow_date, b.due_date, b.status AS borrowing_status,
+               bk.id AS book_id, bk.title, bk.author, bk.category, bk.image
+        FROM borrowings b
+        JOIN books bk ON b.book_id = bk.id
+        WHERE b.customer_id = ? AND b.status IN ('Borrowed', 'Pending Return')
+        ORDER BY b.borrow_date DESC
+    ");
+    $b_stmt->bind_param("i", $cust_id);
+    $b_stmt->execute();
+    $b_res = $b_stmt->get_result();
+    if ($b_res) {
+        while ($b_row = $b_res->fetch_assoc()) {
+            $customer_active_borrowings[] = $b_row;
+        }
+    }
+}
+
 // Handle AJAX Book Token/ID Lookup
 if (isset($_GET['action']) && $_GET['action'] === 'lookup') {
     header('Content-Type: application/json; charset=utf-8');
@@ -151,9 +212,10 @@ if ($search !== '') {
             margin: 0 auto;
         }
 
-        .books-page h1 {
+        .books-page h1,
+        .browse-catalog-header h1 {
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-size: 32px;
             color: #241e1a;
             display: flex;
@@ -162,11 +224,56 @@ if ($search !== '') {
             gap: 10px;
         }
 
-        .books-page > p {
+        .books-page > p,
+        .browse-catalog-header p {
             text-align: center;
             color: #6b625b;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             font-size: 16px;
+        }
+
+        .browse-catalog-header {
+            margin: 12px auto 6px;
+            max-width: 820px;
+        }
+
+        .catalog-section-divider {
+            max-width: 820px;
+            margin: 44px auto 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .catalog-section-divider::before,
+        .catalog-section-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #d5cbbe;
+        }
+
+        .catalog-section-divider span {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #7a6e64;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            background: #fbf8f4;
+            border: 1px solid #dcd3c7;
+            border-radius: 20px;
+            box-shadow: 0 1px 3px rgba(46, 38, 32, 0.04);
+            white-space: nowrap;
+        }
+
+        .catalog-section-divider span svg {
+            width: 14px;
+            height: 14px;
+            color: #8c7355;
         }
 
         /* Top Action Section: Unified Single-Line Search & Quick Lookup */
@@ -854,7 +961,598 @@ if ($search !== '') {
             border: 1px solid #d5cbbe;
         }
 
+        /* CUSTOMER ACCOUNT & PROFILE HEADER */
+        .customer-header-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .customer-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px 4px 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 20px;
+            color: #f5eedf;
+            font-size: 13.5px;
+        }
+
+        .customer-pill .customer-pill-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(216, 194, 157, 0.22);
+            border: 1px solid rgba(216, 194, 157, 0.38);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: #f5eedf;
+        }
+
+        .customer-pill .customer-pill-avatar svg,
+        .customer-pill svg {
+            width: 13px;
+            height: 13px;
+            color: #f5eedf;
+            display: block;
+        }
+
+        .customer-pill .customer-name {
+            font-weight: 600;
+            color: #ffffff;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .customer-pill .pill-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .customer-pill .pill-badge.verified {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .customer-pill .pill-badge.pending {
+            background: #f59e0b;
+            color: #ffffff;
+        }
+
+        .customer-pill .pill-badge.rejected {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        .customer-logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #f5eedf;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            text-decoration: none;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .customer-logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+        }
+
+        #cancelLogoutBtn:hover {
+            background: #e8ded1 !important;
+        }
+
+        #confirmLogoutLink:hover {
+            background: #b91c1c !important;
+        }
+
+        .customer-auth-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-auth-login {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .btn-auth-login:hover {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        .btn-auth-register {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #23160d;
+            background: #e8ded1;
+            border: 1px solid #d5cbbe;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.15s ease;
+        }
+
+        .btn-auth-register:hover {
+            background: #ffffff;
+        }
+
+        .btn-librarian-login {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #d8c29d;
+            background: rgba(216, 194, 157, 0.12);
+            border: 1px solid rgba(216, 194, 157, 0.3);
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .btn-librarian-login svg {
+            width: 14px;
+            height: 14px;
+            color: #d8c29d;
+        }
+
+        .btn-librarian-login:hover {
+            background: rgba(216, 194, 157, 0.24);
+            border-color: rgba(216, 194, 157, 0.55);
+            color: #ffffff;
+        }
+
+        .btn-librarian-login:hover svg {
+            color: #ffffff;
+        }
+
+        /* CUSTOMER ACCOUNT HUB BANNER (MAIN VIEW) */
+        .customer-account-hub {
+            max-width: 820px;
+            margin: 0 auto 28px;
+            background: #ffffff;
+            border: 1px solid #e5dfd5;
+            border-radius: 8px;
+            padding: 18px 22px;
+            box-shadow: 0 4px 14px rgba(46, 38, 32, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .customer-account-hub.status-pending {
+            border-color: #fde68a;
+            background: #fffdf5;
+        }
+
+        .customer-account-hub.status-rejected {
+            border-color: #fecaca;
+            background: #fff8f8;
+        }
+
+        .hub-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex: 1;
+            min-width: 260px;
+        }
+
+        .hub-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f4efe8;
+            border: 1px solid #dfd7cc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5a4a3e;
+            flex-shrink: 0;
+        }
+
+        .hub-avatar svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .hub-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .hub-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hub-customer-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #241e1a;
+            margin: 0;
+        }
+
+        .hub-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .hub-status-badge.verified {
+            background: #def7ec;
+            color: #03543f;
+            border: 1px solid #bcf0da;
+        }
+
+        .hub-status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .hub-status-badge.rejected {
+            background: #fde8e8;
+            color: #9b1c1c;
+            border: 1px solid #f8b4b4;
+        }
+
+        .hub-caption {
+            font-size: 13px;
+            color: #6b625b;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .hub-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hub-loan-metric {
+            background: #fbf9f6;
+            border: 1px solid #e5dfd5;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-align: center;
+            min-width: 95px;
+        }
+
+        .hub-loan-metric .metric-val {
+            display: block;
+            font-size: 18px;
+            font-weight: 800;
+            color: #241e1a;
+            line-height: 1.1;
+        }
+
+        .hub-loan-metric .metric-lbl {
+            font-size: 11px;
+            color: #7a6e64;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* MY BORROWED BOOKS SECTION */
+        .my-loans-container {
+            max-width: 820px;
+            margin: 0 auto 32px;
+            background: #ffffff;
+            border: 1px solid #e5dfd5;
+            border-radius: 8px;
+            padding: 22px 24px;
+            box-shadow: 0 4px 14px rgba(46, 38, 32, 0.04);
+        }
+
+        .my-loans-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #eee7de;
+        }
+
+        .my-loans-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #241e1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .my-loans-count-chip {
+            background: #2e2620;
+            color: #ffffff;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .my-loans-subtitle {
+            font-size: 12.5px;
+            color: #6b625b;
+        }
+
+        .my-loans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .loan-item-card {
+            border: 1px solid #eee7de;
+            border-radius: 8px;
+            padding: 14px;
+            background: #fbf9f6;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .loan-item-card:hover {
+            border-color: #d5cbbe;
+            box-shadow: 0 2px 8px rgba(46, 38, 32, 0.06);
+        }
+
+        .loan-cover-cell {
+            flex: 0 0 60px;
+            width: 60px;
+            height: 84px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #dcd4c8;
+            background: #ede6dc;
+            box-shadow: 0 1px 4px rgba(46, 38, 32, 0.08);
+        }
+
+        .loan-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .loan-cover-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8c827a;
+        }
+
+        .loan-cover-placeholder svg {
+            width: 28px;
+            height: 28px;
+            opacity: 0.6;
+        }
+
+        .loan-info-cell {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 84px;
+        }
+
+        .loan-book-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #241e1a;
+            margin: 0 0 2px 0;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .loan-book-author {
+            font-size: 13px;
+            color: #6b625b;
+            margin: 0 0 8px 0;
+        }
+
+        .loan-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .loan-badge-due {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11.5px;
+            padding: 2.5px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .loan-badge-due.borrowed {
+            background: #fff8e1;
+            color: #8a5200;
+            border: 1px solid #ffe082;
+        }
+
+        .loan-badge-due.overdue {
+            background: #fdeeed;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        .loan-badge-due.pending-return {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-loan-return-action {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 12px;
+            font-size: 12.5px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: #2e2620;
+            color: #ffffff;
+            border: 1px solid #241e1a;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .btn-loan-return-action:hover {
+            background: #443830;
+        }
+
+        .loan-pending-indicator {
+            font-size: 11.5px;
+            color: #0284c7;
+            background: #f0f9ff;
+            border: 1px dashed #bae6fd;
+            padding: 6px 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
         @media (max-width: 640px) {
+            .customer-header-wrap {
+                gap: 6px;
+            }
+
+            .customer-auth-actions {
+                gap: 5px;
+            }
+
+            .btn-auth-login,
+            .btn-auth-register,
+            .btn-librarian-login {
+                padding: 5px 9px;
+                font-size: 11.5px;
+            }
+
+            .customer-pill .customer-name {
+                max-width: 95px;
+            }
+
+            .customer-pill {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+
+            .customer-logout-btn {
+                padding: 5px 8px;
+                font-size: 11.5px;
+            }
+
+            .customer-account-hub {
+                padding: 14px 16px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hub-right {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .hub-loan-metric {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 12px;
+            }
+
+            .my-loans-container {
+                padding: 16px 14px;
+            }
+
+            .my-loans-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .catalog-section-divider {
+                margin: 32px auto 20px;
+                gap: 10px;
+            }
+
+            .catalog-section-divider span {
+                font-size: 10.5px;
+                padding: 4px 10px;
+                letter-spacing: 0.8px;
+            }
+
             .unified-search-bar {
                 gap: 6px;
             }
@@ -1111,7 +1809,7 @@ if ($search !== '') {
 <body>
 
 <header>
-    <a href="../index.php" class="brand-link">
+    <a href="books.php" class="brand-link">
         <div class="brand-emblem-wrap">
             <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Page Lounge Logo" class="brand-emblem-img" onerror="this.onerror=null; this.src='../logo.svg';">
         </div>
@@ -1123,32 +1821,188 @@ if ($search !== '') {
             <span class="brand-tagline">Book Café</span>
         </div>
     </a>
-    <div class="header-actions" style="display: flex; align-items: center; gap: 12px;">
-        <?php if (isset($_SESSION['customer_id'])): ?>
-            <span style="font-size: 13.5px; color: #554b43;">
-                Hello, <strong><?php echo htmlspecialchars($_SESSION['customer_name']); ?></strong>
-                <?php if (($_SESSION['account_status'] ?? '') === 'Approved'): ?>
-                    <span style="background: #def7ec; color: #03543f; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px;">Verified</span>
-                <?php else: ?>
-                    <span style="background: #fef08a; color: #854d0e; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 4px;">Pending ID</span>
-                <?php endif; ?>
-            </span>
-            <a href="logout.php" class="header-admin-btn" style="padding: 5px 10px; font-size: 12px; background: #f4efe8; color: #2e2620; border: 1px solid #d5cbbe;">Logout</a>
+    <div class="header-actions">
+        <?php if ($is_customer_logged_in): ?>
+            <div class="customer-header-wrap">
+                <div class="customer-pill">
+                    <span class="customer-pill-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                        </svg>
+                    </span>
+                    <span class="customer-name"><?php echo htmlspecialchars($_SESSION['customer_name']); ?></span>
+                    <?php if (($_SESSION['account_status'] ?? '') === 'Approved'): ?>
+                        <span class="pill-badge verified">Verified</span>
+                    <?php elseif (($_SESSION['account_status'] ?? '') === 'Rejected'): ?>
+                        <span class="pill-badge rejected">Rejected</span>
+                    <?php else: ?>
+                        <span class="pill-badge pending">Pending ID</span>
+                    <?php endif; ?>
+                </div>
+                <button type="button" class="customer-logout-btn" id="openLogoutModalBtn" aria-label="Sign out of your account" title="Sign out of your account">
+                    <i data-heroicon="arrow-right-on-rectangle"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
         <?php else: ?>
-            <a href="login.php" class="header-admin-btn" style="padding: 6px 12px; font-size: 12.5px;">Log In</a>
-            <a href="register.php" class="header-admin-btn" style="padding: 6px 12px; font-size: 12.5px; background: #f4efe8; color: #2e2620; border: 1px solid #d5cbbe;">Register</a>
+            <div class="customer-auth-actions">
+                <a href="login.php" class="btn-auth-login">
+                    <i data-heroicon="arrow-left-on-rectangle"></i> Log In
+                </a>
+                <a href="register.php" class="btn-auth-register">
+                    <i data-heroicon="user-plus"></i> Register
+                </a>
+                <?php if (isset($_SESSION['librarian'])): ?>
+                    <a href="../admin/dashboard.php" class="btn-librarian-login" title="Librarian Dashboard">
+                        <i data-heroicon="squares-2x2"></i> Librarian Portal
+                    </a>
+                <?php else: ?>
+                    <a href="../admin/login.php" class="btn-librarian-login" title="Staff &amp; Librarian Login">
+                        <i data-heroicon="lock-closed"></i> Librarian Login
+                    </a>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
     </div>
 </header>
 
 <main class="books-page">
 
-    <h1><i data-heroicon="bookmark"></i> Browse Books</h1>
     <?php if ($is_customer_logged_in): ?>
-        <p>Choose a book to borrow, look up its token, or scan its shelf QR code.</p>
-    <?php else: ?>
-        <p>Browse our café library catalog. An approved customer account is required to borrow books.</p>
+        <?php
+            $acc_status = $_SESSION['account_status'] ?? 'Pending';
+            $status_class = strtolower($acc_status);
+            $loans_count = count($customer_active_borrowings);
+        ?>
+        <section class="customer-account-hub status-<?php echo $status_class; ?>">
+            <div class="hub-left">
+                <div class="hub-avatar">
+                    <i data-heroicon="user"></i>
+                </div>
+                <div class="hub-details">
+                    <div class="hub-name-row">
+                        <h2 class="hub-customer-name"><?php echo htmlspecialchars($_SESSION['customer_name']); ?></h2>
+                        <?php if ($acc_status === 'Approved'): ?>
+                            <span class="hub-status-badge verified"><i data-heroicon="check-circle"></i> Verified Account</span>
+                        <?php elseif ($acc_status === 'Rejected'): ?>
+                            <span class="hub-status-badge rejected"><i data-heroicon="x-circle"></i> ID Rejected</span>
+                        <?php else: ?>
+                            <span class="hub-status-badge pending"><i data-heroicon="clock"></i> Pending ID Verification</span>
+                        <?php endif; ?>
+                    </div>
+                    <p class="hub-caption">
+                        <?php if ($acc_status === 'Approved'): ?>
+                            Your account is verified! You can borrow up to <strong>2 books</strong> simultaneously.
+                        <?php elseif ($acc_status === 'Rejected'): ?>
+                            Your uploaded ID was not approved by library staff. Please visit the front desk to update your ID.
+                        <?php else: ?>
+                            Your uploaded ID is awaiting librarian verification. Book borrowing will be unlocked once approved.
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+            <div class="hub-right">
+                <div class="hub-loan-metric">
+                    <span class="metric-val"><?php echo $loans_count; ?> / 2</span>
+                    <span class="metric-lbl">Active Loans</span>
+                </div>
+            </div>
+        </section>
     <?php endif; ?>
+
+    <?php if (!empty($return_notice)): ?>
+        <div style="background: #edf7ed; color: #1e6b24; padding: 12px 16px; border-radius: 6px; border: 1px solid #c8e6c9; margin: 15px auto 24px; max-width: 820px; font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i data-heroicon="check-circle"></i>
+            <span><?php echo htmlspecialchars($return_notice); ?></span>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!empty($customer_active_borrowings)): ?>
+        <section id="myLoans" class="my-loans-container">
+            <div class="my-loans-header">
+                <h2 class="my-loans-title">
+                    <i data-heroicon="bookmark"></i>
+                    <span>My Borrowed Books</span>
+                    <span class="my-loans-count-chip"><?php echo count($customer_active_borrowings); ?> / 2</span>
+                </h2>
+                <span class="my-loans-subtitle">To return a book, click 'Return Book' and hand it to the librarian at the counter.</span>
+            </div>
+            <div class="my-loans-grid">
+                <?php foreach ($customer_active_borrowings as $loan): ?>
+                    <?php
+                        $is_overdue = ($loan['borrowing_status'] === 'Borrowed' && strtotime($loan['due_date']) < time());
+                        $is_pending = ($loan['borrowing_status'] === 'Pending Return');
+                        $loanCoverUrl = '';
+                        if (!empty($loan['image']) && file_exists(__DIR__ . '/../' . $loan['image'])) {
+                            $loanCoverUrl = '../' . htmlspecialchars($loan['image']);
+                        }
+                    ?>
+                    <div class="loan-item-card">
+                        <div class="loan-cover-cell">
+                            <?php if ($loanCoverUrl !== ''): ?>
+                                <img src="<?php echo $loanCoverUrl; ?>" alt="Cover" class="loan-cover-img" loading="lazy">
+                            <?php else: ?>
+                                <div class="loan-cover-placeholder">
+                                    <i data-heroicon="book-open"></i>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="loan-info-cell">
+                            <div>
+                                <h3 class="loan-book-title" title="<?php echo htmlspecialchars($loan['title']); ?>"><?php echo htmlspecialchars($loan['title']); ?></h3>
+                                <p class="loan-book-author">by <?php echo htmlspecialchars($loan['author']); ?></p>
+                                <div class="loan-meta-row">
+                                    <?php if ($is_pending): ?>
+                                        <span class="loan-badge-due pending-return">
+                                            <i data-heroicon="arrow-path" class="heroicon-spin"></i> Pending Verification
+                                        </span>
+                                    <?php elseif ($is_overdue): ?>
+                                        <span class="loan-badge-due overdue">
+                                            <i data-heroicon="exclamation-triangle"></i> Overdue (Due: <?php echo date("M d, Y", strtotime($loan['due_date'])); ?>)
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="loan-badge-due borrowed">
+                                            <i data-heroicon="calendar"></i> Due: <?php echo date("M d, Y", strtotime($loan['due_date'])); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div>
+                                <?php if ($is_pending): ?>
+                                    <div class="loan-pending-indicator">
+                                        <i data-heroicon="building-library"></i> Return requested &bull; Hand book to librarian
+                                    </div>
+                                <?php else: ?>
+                                    <form method="POST" style="margin: 0;" onsubmit="return confirm('Request return for \'<?php echo htmlspecialchars(addslashes($loan['title'])); ?>\'? You will hand the book to the librarian for physical verification.');">
+                                        <input type="hidden" name="action" value="request_return">
+                                        <input type="hidden" name="borrowing_id" value="<?php echo (int)$loan['borrowing_id']; ?>">
+                                        <button type="submit" class="btn-loan-return-action">
+                                            <i data-heroicon="arrow-uturn-left"></i> Return Book
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($is_customer_logged_in): ?>
+        <div class="catalog-section-divider" aria-hidden="true">
+            <span><i data-heroicon="book-open"></i> Library Catalog</span>
+        </div>
+    <?php endif; ?>
+
+    <div class="browse-catalog-header">
+        <h1><i data-heroicon="bookmark"></i> Browse Books</h1>
+        <?php if ($is_customer_logged_in): ?>
+            <p>Choose a book to borrow, look up its token, or scan its shelf QR code.</p>
+        <?php else: ?>
+            <p>Browse our café library catalog. An approved customer account is required to borrow books.</p>
+        <?php endif; ?>
+    </div>
 
     <!-- Unified Single-Line Search & Quick Token Lookup -->
     <form method="GET" class="unified-search-form" id="unifiedSearchForm">
@@ -1283,12 +2137,6 @@ if ($search !== '') {
 
     </div>
 
-    <div class="back-button-wrap">
-        <a href="../index.php" class="back-button">
-            <i data-heroicon="arrow-left"></i> Back to Home
-        </a>
-    </div>
-
 </main>
 
 <!-- Camera QR Scanner Modal -->
@@ -1330,6 +2178,29 @@ if ($search !== '') {
     </div>
 </div>
 
+<?php if ($is_customer_logged_in): ?>
+<div class="modal-overlay" id="logoutModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle" style="display: none;">
+    <div class="modal-dialog" style="max-width: 400px; text-align: center; padding: 26px 24px; border-radius: 8px;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <i data-heroicon="arrow-right-on-rectangle" style="width: 26px; height: 26px;"></i>
+        </div>
+        <h2 id="logoutModalTitle" style="font-size: 20px; color: #241e1a; margin: 0 0 8px 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 700;">Confirm Logout</h2>
+        <p style="font-size: 14px; color: #6b625b; margin: 0 0 22px 0; line-height: 1.5;">
+            Are you sure you want to sign out, <strong><?php echo htmlspecialchars($_SESSION['customer_name'] ?? ''); ?></strong>?
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn-modal-cancel" id="cancelLogoutBtn" style="flex: 1; padding: 10px 16px; font-size: 13.5px; font-weight: 600; background: #f4efe8; color: #2e2620; border: 1px solid #d5cbbe; border-radius: 6px; cursor: pointer; transition: background 0.15s ease;">
+                Cancel
+            </button>
+            <a href="logout.php" id="confirmLogoutLink" style="flex: 1; padding: 10px 16px; font-size: 13.5px; font-weight: 600; background: #dc2626; color: #ffffff; border: 1px solid #b91c1c; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s ease;">
+                <i data-heroicon="arrow-right-on-rectangle"></i>
+                <span>Log Out</span>
+            </a>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script src="../heroicons.js?v=<?= @filemtime(__DIR__ . '/../heroicons.js') ?: time() ?>"></script>
 <script src="../html5-qrcode.min.js"></script>
 <script>
@@ -1357,6 +2228,10 @@ if ($search !== '') {
         var scannerWrapper = document.getElementById('scannerWrapper');
         var scannerPlaceholder = document.getElementById('scannerPlaceholder');
         var scannerFeedback = document.getElementById('scannerFeedback');
+
+        var logoutModal = document.getElementById('logoutModal');
+        var openLogoutModalBtn = document.getElementById('openLogoutModalBtn');
+        var cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 
         var unifiedSearchForm = document.getElementById('unifiedSearchForm');
         var unifiedSearchInput = document.getElementById('unifiedSearchInput');
@@ -1549,12 +2424,38 @@ if ($search !== '') {
             }
         });
 
+        // Logout Modal Interactions
+        if (openLogoutModalBtn && logoutModal) {
+            openLogoutModalBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                showModal(logoutModal);
+                heroicons.createIcons({ root: logoutModal });
+            });
+        }
+
+        if (cancelLogoutBtn && logoutModal) {
+            cancelLogoutBtn.addEventListener('click', function () {
+                hideModal(logoutModal);
+            });
+        }
+
+        if (logoutModal) {
+            logoutModal.addEventListener('click', function (e) {
+                if (e.target === logoutModal) {
+                    hideModal(logoutModal);
+                }
+            });
+        }
+
         // Escape Key
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                if (scannerModal.classList.contains('is-active')) {
+                if (scannerModal && scannerModal.classList.contains('is-active')) {
                     stopScanning();
                     hideModal(scannerModal);
+                }
+                if (logoutModal && logoutModal.classList.contains('is-active')) {
+                    hideModal(logoutModal);
                 }
             }
         });

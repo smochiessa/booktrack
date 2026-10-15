@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `borrowings` (
     `borrow_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `due_date` DATETIME NOT NULL,
     `return_date` DATETIME DEFAULT NULL,
-    `status` ENUM('Borrowed', 'Returned') NOT NULL DEFAULT 'Borrowed',
+    `status` ENUM('Borrowed', 'Pending Return', 'Returned') NOT NULL DEFAULT 'Borrowed',
     PRIMARY KEY (`id`),
     KEY `idx_borrowings_customer` (`customer_id`),
     KEY `idx_borrowings_book` (`book_id`),

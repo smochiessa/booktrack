@@ -10,6 +10,7 @@ $tests = [
     'test_customer_approval.php',
     'test_borrow_limit.php',
     'test_admin_return.php',
+    'test_customer_return_flow.php',
     'test_qr_return_endpoint.php',
     'test_print_qrs_rendering.php',
     'test_most_borrowed_query.php',

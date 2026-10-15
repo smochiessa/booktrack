@@ -228,7 +228,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </head>
 <body>
     <header>
-        <a href="../index.php" class="brand-link">
+        <a href="books.php" class="brand-link">
             <div class="brand-emblem-wrap">
                 <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Page Lounge Logo" class="brand-emblem-img" onerror="this.onerror=null; this.src='../logo.svg';">
             </div>

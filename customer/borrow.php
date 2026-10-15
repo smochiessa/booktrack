@@ -50,7 +50,7 @@ if ($account_status !== 'Approved') {
 // 3. Check active borrowings limit (max 2 active borrowed books)
 $active_loans_count = 0;
 if (!$init_error) {
-    $count_stmt = $conn->prepare("SELECT COUNT(*) AS active_count FROM borrowings WHERE customer_id = ? AND status = 'Borrowed'");
+    $count_stmt = $conn->prepare("SELECT COUNT(*) AS active_count FROM borrowings WHERE customer_id = ? AND status IN ('Borrowed', 'Pending Return')");
     $count_stmt->bind_param("i", $customer_id);
     $count_stmt->execute();
     $active_loans_count = (int)$count_stmt->get_result()->fetch_assoc()['active_count'];
@@ -286,7 +286,7 @@ if (!$init_error && $_SERVER["REQUEST_METHOD"] === "POST") {
 </head>
 <body>
     <header>
-        <a href="../index.php" class="brand-link">
+        <a href="books.php" class="brand-link">
             <div class="brand-emblem-wrap">
                 <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Page Lounge Logo" class="brand-emblem-img" onerror="this.onerror=null; this.src='../logo.svg';">
             </div>

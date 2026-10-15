@@ -10,6 +10,7 @@ if (!isset($_SESSION['librarian'])) {
 require_once "../database.php";
 $logo_url = pagelounge_logo_url();
 $pending_count = pagelounge_pending_customers_count($conn);
+$pending_returns_count = pagelounge_pending_returns_count($conn);
 
 // Include QR generator autoload if needed
 $autoload_file = "../vendor/autoload.php";
@@ -419,6 +420,9 @@ function ensure_qr_file(mysqli $conn, array $b): string {
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                        <?php if ($pending_returns_count > 0): ?>
+                            <span style="background: #0284c7; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;" title="<?php echo $pending_returns_count; ?> returns awaiting verification"><?php echo $pending_returns_count; ?></span>
+                        <?php endif; ?>
                     </a>
                     <a href="scan_return.php">
                         <i data-heroicon="qr-code"></i> Scan Return

@@ -11,6 +11,7 @@ require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
 $pending_count = pagelounge_pending_customers_count($conn);
+$pending_returns_count = pagelounge_pending_returns_count($conn);
 
 $flash_message = "";
 $flash_type = "";
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $b_stmt->execute();
             $b_row = $b_stmt->get_result()->fetch_assoc();
 
-            if ($b_row && $b_row['status'] === 'Borrowed') {
+            if ($b_row && ($b_row['status'] === 'Borrowed' || $b_row['status'] === 'Pending Return')) {
                 $b_id = (int)$b_row['book_id'];
 
                 $upd_b = $conn->prepare("UPDATE borrowings SET return_date = NOW(), status = 'Returned' WHERE id = ?");
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $upd_bk->execute();
 
                 $conn->commit();
-                $flash_message = "Book marked as returned successfully.";
+                $flash_message = "Book return verified and marked as returned successfully.";
                 $flash_type = "success";
             } else {
                 $conn->rollback();
@@ -86,10 +87,12 @@ if ($search !== '') {
 
 if ($status_filter === 'Returned') {
     $sql .= " AND borrowings.status = 'Returned'";
+} elseif ($status_filter === 'Pending Return') {
+    $sql .= " AND borrowings.status = 'Pending Return'";
 } elseif ($status_filter === 'Borrowed') {
     $sql .= " AND borrowings.status = 'Borrowed' AND borrowings.due_date >= NOW()";
 } elseif ($status_filter === 'Overdue') {
-    $sql .= " AND borrowings.status = 'Borrowed' AND borrowings.due_date < NOW()";
+    $sql .= " AND (borrowings.status = 'Borrowed' OR borrowings.status = 'Pending Return') AND borrowings.due_date < NOW()";
 }
 
 $sql .= " ORDER BY borrowings.borrow_date DESC";
@@ -230,6 +233,32 @@ if (!empty($params)) {
             border: 1px solid #ffcdd2;
         }
 
+        .status-badge.pending-return {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
+        .action-verify-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: #0284c7;
+            color: #ffffff;
+            border: 1px solid #0369a1;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s ease;
+        }
+
+        .action-verify-btn:hover {
+            background: #0369a1;
+        }
+
         .action-return-btn {
             display: inline-flex;
             align-items: center;
@@ -322,6 +351,9 @@ if (!empty($params)) {
                     </a>
                     <a href="borrowings.php" class="active">
                         <i data-heroicon="clock"></i> Borrowing History
+                        <?php if ($pending_returns_count > 0): ?>
+                            <span style="background: #0284c7; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;" title="<?php echo $pending_returns_count; ?> returns awaiting verification"><?php echo $pending_returns_count; ?></span>
+                        <?php endif; ?>
                     </a>
                     <a href="scan_return.php">
                         <i data-heroicon="qr-code"></i> Scan Return
@@ -374,6 +406,7 @@ if (!empty($params)) {
 
                     <select name="status" class="filter-select">
                         <option value="">All Statuses</option>
+                        <option value="Pending Return" <?php echo $status_filter === 'Pending Return' ? 'selected' : ''; ?>>Pending Return Verification</option>
                         <option value="Borrowed" <?php echo $status_filter === 'Borrowed' ? 'selected' : ''; ?>>Active Borrowed</option>
                         <option value="Overdue" <?php echo $status_filter === 'Overdue' ? 'selected' : ''; ?>>Overdue</option>
                         <option value="Returned" <?php echo $status_filter === 'Returned' ? 'selected' : ''; ?>>Returned</option>
@@ -443,6 +476,10 @@ if (!empty($params)) {
                                                 <span class="status-badge returned">
                                                     <i data-heroicon="check-circle"></i> Returned
                                                 </span>
+                                            <?php elseif ($row['status'] === 'Pending Return'): ?>
+                                                <span class="status-badge pending-return">
+                                                    <i data-heroicon="arrow-path"></i> Pending Return
+                                                </span>
                                             <?php elseif ($is_overdue): ?>
                                                 <span class="status-badge overdue">
                                                     <i data-heroicon="exclamation-triangle"></i> Overdue
@@ -454,7 +491,15 @@ if (!empty($params)) {
                                             <?php endif; ?>
                                         </td>
                                         <td style="text-align: center;">
-                                            <?php if ($row['status'] === 'Borrowed'): ?>
+                                            <?php if ($row['status'] === 'Pending Return'): ?>
+                                                <form method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Verify that this book has been fully returned?');">
+                                                    <input type="hidden" name="action" value="mark_returned">
+                                                    <input type="hidden" name="borrowing_id" value="<?php echo (int)$row['id']; ?>">
+                                                    <button type="submit" class="action-verify-btn">
+                                                        <i data-heroicon="check"></i> Verify Return
+                                                    </button>
+                                                </form>
+                                            <?php elseif ($row['status'] === 'Borrowed'): ?>
                                                 <form method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Confirm returning this book?');">
                                                     <input type="hidden" name="action" value="mark_returned">
                                                     <input type="hidden" name="borrowing_id" value="<?php echo (int)$row['id']; ?>">

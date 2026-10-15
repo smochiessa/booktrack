@@ -11,6 +11,7 @@ require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
 $pending_count = pagelounge_pending_customers_count($conn);
+$pending_returns_count = pagelounge_pending_returns_count($conn);
 
 // Handle AJAX QR Return Request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'process_qr_return') {
@@ -74,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 customers.email
                             FROM borrowings
                             JOIN customers ON borrowings.customer_id = customers.id
-                            WHERE borrowings.book_id = ? AND borrowings.status = 'Borrowed'
+                            WHERE borrowings.book_id = ? AND borrowings.status IN ('Borrowed', 'Pending Return')
                             ORDER BY borrowings.borrow_date ASC
                             LIMIT 1");
     $stmt->bind_param("i", $book_id);
@@ -501,6 +502,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                        <?php if ($pending_returns_count > 0): ?>
+                            <span style="background: #0284c7; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;" title="<?php echo $pending_returns_count; ?> returns awaiting verification"><?php echo $pending_returns_count; ?></span>
+                        <?php endif; ?>
                     </a>
                     <a href="scan_return.php" class="active">
                         <i data-heroicon="qr-code"></i> Scan Return

@@ -48,6 +48,14 @@ if ($custStatusCheck && $custStatusCheck->num_rows === 0) {
     $conn->query("ALTER TABLE `customers` ADD COLUMN `account_status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending' AFTER `id_image`");
 }
 
+// Auto-migrate: ensure `borrowings` supports 'Pending Return' status
+$borrowStatusCheck = $conn->query("SHOW COLUMNS FROM `borrowings` LIKE 'status'");
+if ($borrowStatusCheck && $row = $borrowStatusCheck->fetch_assoc()) {
+    if (strpos($row['Type'], 'Pending Return') === false) {
+        $conn->query("ALTER TABLE `borrowings` MODIFY COLUMN `status` ENUM('Borrowed', 'Pending Return', 'Returned') NOT NULL DEFAULT 'Borrowed'");
+    }
+}
+
 // Auto-migrate: ensure `admins` table exists and default librarian account is seeded
 $conn->query("CREATE TABLE IF NOT EXISTS `admins` (
     `id` INT NOT NULL AUTO_INCREMENT,
@@ -165,6 +173,14 @@ function pagelounge_normalize_contact(string $raw): string {
  */
 function pagelounge_pending_customers_count(mysqli $conn): int {
     $res = $conn->query("SELECT COUNT(*) AS total FROM customers WHERE account_status = 'Pending'");
+    return $res ? (int)($res->fetch_assoc()['total'] ?? 0) : 0;
+}
+
+/**
+ * Returns count of book returns awaiting librarian verification.
+ */
+function pagelounge_pending_returns_count(mysqli $conn): int {
+    $res = $conn->query("SELECT COUNT(*) AS total FROM borrowings WHERE status = 'Pending Return'");
     return $res ? (int)($res->fetch_assoc()['total'] ?? 0) : 0;
 }
 

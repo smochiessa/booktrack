@@ -7,6 +7,7 @@ require_once "../database.php";
 
 $logo_url = pagelounge_logo_url();
 $pending_count = pagelounge_pending_customers_count($conn);
+$pending_returns_count = pagelounge_pending_returns_count($conn);
 
 // Make sure librarian is logged in
 if (!isset($_SESSION['librarian'])) {
@@ -439,6 +440,9 @@ $transactions_query = $conn->query(
                     </a>
                     <a href="borrowings.php">
                         <i data-heroicon="clock"></i> Borrowing History
+                        <?php if ($pending_returns_count > 0): ?>
+                            <span style="background: #0284c7; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px;" title="<?php echo $pending_returns_count; ?> returns awaiting verification"><?php echo $pending_returns_count; ?></span>
+                        <?php endif; ?>
                     </a>
                     <a href="scan_return.php">
                         <i data-heroicon="qr-code"></i> Scan Return
@@ -482,6 +486,19 @@ $transactions_query = $conn->query(
 
     </div>
 
+    <?php if ($pending_returns_count > 0): ?>
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 14px 18px; border-radius: 6px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i data-heroicon="arrow-path" style="color: #0284c7; width: 22px; height: 22px; flex-shrink: 0;"></i>
+                <span style="color: #0c4a6e; font-size: 14px; font-weight: 500;">
+                    <strong><?php echo $pending_returns_count; ?> book return<?php echo $pending_returns_count > 1 ? 's' : ''; ?></strong> awaiting librarian physical verification.
+                </span>
+            </div>
+            <a href="borrowings.php?status=Pending+Return" style="display: inline-flex; align-items: center; gap: 6px; background: #0284c7; color: #ffffff; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none;">
+                Verify Returns <i data-heroicon="arrow-right"></i>
+            </a>
+        </div>
+    <?php endif; ?>
 
     <!-- STATISTICS -->
 
@@ -522,6 +539,19 @@ $transactions_query = $conn->query(
 
             <div class="stat-number">
                 <?php echo $borrowed_books; ?>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <h3>
+                <i data-heroicon="arrow-path"></i> Pending Returns
+            </h3>
+
+            <div class="stat-number" style="<?php echo $pending_returns_count > 0 ? 'color: #0284c7;' : ''; ?>">
+                <?php echo $pending_returns_count; ?>
             </div>
 
         </div>

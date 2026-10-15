@@ -9,8 +9,7 @@ A self-service café library and borrowing management system built with PHP, MyS
 ### ☕ Customer Self-Service Portal
 - **Browse Books**: Mobile-optimized catalog with responsive 2x2 grid layout, live availability badges, book covers, and category tags.
 - **Unified Search & QR Scanner**: Look up books by title, author, category, ISBN, or scan shelf QR codes via the device camera (HTML5 QR scanner).
-- **Instant Borrowing**: Modal-driven borrowing loan checkout with customer contact lookup and automated 7-day loan calculation.
-- **Self-Service Returns**: Look up active loans by name and phone number; return individual books or select from multiple active borrowings.
+- **Instant Borrowing**: Modal-driven borrowing loan checkout with customer authentication and automated 7-day loan calculation.
 
 ### 📚 Librarian Administrative Portal
 - **Dashboard**: Key operational metrics (Total Books, Available, Borrowed, Overdue) in a compact 2x2 mobile layout, plus real-time recent transaction feeds.
@@ -42,16 +41,21 @@ A self-service café library and borrowing management system built with PHP, MyS
 booktrack/
 ├── admin/
 │   ├── books.php          # Book inventory CRUD & QR code generation
-│   ├── borrowings.php     # Loan transaction tracking & status filtering
-│   ├── dashboard.php      # Librarian KPI dashboard & quick feed
+│   ├── borrowings.php     # Loan tracking & return verification
+│   ├── customers.php      # Customer account verification & ID review
+│   ├── dashboard.php      # Librarian KPI dashboard & pending return alerts
 │   ├── login.php          # Librarian authentication
 │   ├── logout.php         # Session termination
+│   ├── print_qrs.php      # Bulk & individual QR code print sheets
 │   ├── reports.php        # Printable ink-friendly audit reports
+│   ├── scan_return.php    # Desk webcam QR scanner for instant book returns
 │   └── settings.php       # Account username & password management
 ├── customer/
-│   ├── books.php          # Customer catalog, search, & QR scanner
+│   ├── books.php          # Customer catalog, loan tracking & return requests
 │   ├── borrow.php         # Direct borrowing loan handler
-│   └── return.php         # Customer return lookup & return submission
+│   ├── login.php          # Customer authentication login
+│   ├── logout.php         # Customer session termination
+│   └── register.php       # Customer registration with ID upload
 ├── qrcodes/               # Generated PNG QR codes for each book
 ├── uploads/               # Book cover image uploads
 ├── database.php           # Database connection & auto-migration routines
